@@ -19,3 +19,7 @@ RUN echo 'export PATH="$PATH:/opt/nvim-linux-arm64/bin"' >> /home/vscode/.zshrc
 
 # [Optional] Uncomment this line to install global node packages.
 # RUN su vscode -c "source /usr/local/share/nvm/nvm.sh && npm install -g <your-package-here>" 2>&1
+
+# preseed the database with some data
+# NOTE: it might not work. seeding needs the postgres volume to be empty.
+COPY postgres-data/seed.sql /docker-entrypoint-initdb.d/
