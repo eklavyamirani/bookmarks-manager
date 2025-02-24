@@ -1,0 +1,6 @@
+@bookmark_manager_backend_HostAddress = http://localhost:5210
+
+GET {{bookmark_manager_backend_HostAddress}}/bookmarks/
+Accept: application/json
+
+###
