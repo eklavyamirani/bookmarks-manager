@@ -22,6 +22,7 @@
   justify-content: center;
   font-size: calc(10px + 2vmin);
   color: white;
+  padding: 20px;
 }
 
 .App-link {
@@ -35,4 +36,123 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.App-main {
+  padding: 20px;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* BookmarkForm styles */
+.bookmark-form {
+  background-color: #f5f5f5;
+  padding: 20px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.add-button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.add-button:hover {
+  background-color: #45a049;
+}
+
+/* BookmarkList styles */
+.bookmark-list {
+  text-align: left;
+}
+
+.bookmark-items {
+  list-style-type: none;
+  padding: 0;
+}
+
+.bookmark-item {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bookmark-item.read {
+  background-color: #f9f9f9;
+}
+
+.bookmark-info h3 {
+  margin: 0 0 10px 0;
+}
+
+.bookmark-info a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.bookmark-info a:hover {
+  text-decoration: underline;
+}
+
+.bookmark-url {
+  color: #666;
+  margin: 5px 0;
+  font-size: 0.9em;
+}
+
+.bookmark-date {
+  color: #888;
+  font-size: 0.8em;
+  margin: 5px 0;
+}
+
+.mark-read-button {
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.mark-read-button:hover {
+  background-color: #0b7dda;
+}
+
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
 }
