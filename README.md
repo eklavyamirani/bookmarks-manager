@@ -1,3 +1,6 @@
+### The goal of this project is to code with LLM. 
+### the devcontainer setup was manual.
+
 ### Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
 2. Load the devcontainer
