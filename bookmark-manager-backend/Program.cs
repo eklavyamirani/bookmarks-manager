@@ -1,3 +1,4 @@
+using BookmarkManager.Services;
 
 namespace bookmark_manager_backend;
 
@@ -8,6 +9,19 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container.
+        builder.Services.AddSingleton<IBookmarkService, MockBookmarkService>();
+
+        // Configure a more permissive CORS policy
+        builder.Services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.AllowAnyOrigin()
+                      .AllowAnyHeader()
+                      .AllowAnyMethod();
+                // Note: Can't use AllowCredentials with AllowAnyOrigin
+            });
+        });
 
         builder.Services.AddControllers();
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -15,22 +29,23 @@ public class Program
 
         var app = builder.Build();
 
-        // Configure the HTTP request pipeline.
+        // Configure the HTTP request pipeline - order matters!
+        
+        // CORS middleware should be one of the first in the pipeline
+        app.UseCors();
+
+        // Other middleware
         if (app.Environment.IsDevelopment())
         {
             app.MapOpenApi();
-            app.UseCors(builder => 
-            builder.AllowAnyOrigin()
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-            );
         }
 
+        app.UseRouting();
+        
         app.UseHttpsRedirection();
-
+        
         app.UseAuthorization();
-
-
+        
         app.MapControllers();
 
         app.Run();

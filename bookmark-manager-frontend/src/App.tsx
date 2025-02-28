@@ -3,12 +3,13 @@ import './App.css';
 import BookmarkList from './components/BookmarkList';
 import BookmarkForm from './components/BookmarkForm';
 import { Bookmark } from './models/Bookmark';
-import { BookmarkService } from './services/BookmarkService';
+import { BookmarkService, toggleApiMode, getApiMode } from './services/BookmarkService';
 
 function App(): React.ReactElement {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [apiMode, setApiMode] = useState<string>(getApiMode());
 
   useEffect(() => {
     // Load bookmarks when component mounts
@@ -53,10 +54,30 @@ function App(): React.ReactElement {
     }
   };
 
+  const handleDeleteBookmark = async (id: number) => {
+    try {
+      await BookmarkService.deleteBookmark(id);
+      setBookmarks(prevBookmarks => prevBookmarks.filter(bookmark => bookmark.id !== id));
+    } catch (err) {
+      setError('Failed to delete bookmark');
+      console.error(err);
+    }
+  };
+
+  const handleToggleApiMode = () => {
+    const newMode = toggleApiMode();
+    setApiMode(getApiMode());
+    fetchBookmarks(); // Reload bookmarks with new API mode
+  };
+
   return (
     <div className="App">
       <header className="App-header">
         <h1>Bookmark Manager</h1>
+        <div className="api-toggle">
+          <span>API Mode: {apiMode}</span>
+          <button onClick={handleToggleApiMode}>Toggle API Mode</button>
+        </div>
       </header>
       <main className="App-main">
         <div className="container">
@@ -69,7 +90,8 @@ function App(): React.ReactElement {
           ) : (
             <BookmarkList 
               bookmarks={bookmarks} 
-              onMarkAsRead={handleMarkAsRead} 
+              onMarkAsRead={handleMarkAsRead}
+              onDeleteBookmark={handleDeleteBookmark}
             />
           )}
         </div>

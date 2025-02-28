@@ -1,4 +1,5 @@
 import { Bookmark } from "../models/Bookmark";
+import { ApiBookmarkService } from "./ApiBookmarkService";
 
 // Initial mock data
 const mockBookmarks: Bookmark[] = [
@@ -28,7 +29,8 @@ const mockBookmarks: Bookmark[] = [
 // In-memory store for our mock API
 let bookmarks = [...mockBookmarks];
 
-export const BookmarkService = {
+// Mock service implementation
+const MockService = {
   // Get all bookmarks
   getAllBookmarks: async (): Promise<Bookmark[]> => {
     return new Promise((resolve) => {
@@ -37,7 +39,7 @@ export const BookmarkService = {
       }, 300); // Simulate network delay
     });
   },
-
+  
   // Mark a bookmark as read
   markAsRead: async (id: number): Promise<Bookmark> => {
     return new Promise((resolve, reject) => {
@@ -55,9 +57,8 @@ export const BookmarkService = {
       }, 300);
     });
   },
-
+  
   // Add a new bookmark
-  // Updated to accept just title and url
   addBookmark: async (bookmark: { title: string; url: string }): Promise<Bookmark> => {
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -71,5 +72,60 @@ export const BookmarkService = {
         resolve(newBookmark);
       }, 300);
     });
+  },
+  
+  // Delete a bookmark
+  deleteBookmark: async (id: number): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const bookmarkIndex = bookmarks.findIndex((b) => b.id === id);
+        if (bookmarkIndex !== -1) {
+          bookmarks.splice(bookmarkIndex, 1);
+          resolve();
+        } else {
+          reject(new Error("Bookmark not found"));
+        }
+      }, 300);
+    });
+  }
+};
+
+// Determine which service to use
+// This can be controlled by environment variables, local storage, or UI toggle
+let useRealApi = false; // Default to mock API
+
+export const toggleApiMode = () => {
+  useRealApi = !useRealApi;
+  return useRealApi;
+};
+
+export const getApiMode = () => {
+  return useRealApi ? "Backend API" : "Mock API";
+};
+
+// Export the combined service that delegates to either the mock or real API
+export const BookmarkService = {
+  getAllBookmarks: async (): Promise<Bookmark[]> => {
+    return useRealApi 
+      ? ApiBookmarkService.getAllBookmarks() 
+      : MockService.getAllBookmarks();
+  },
+  
+  markAsRead: async (id: number): Promise<Bookmark> => {
+    return useRealApi 
+      ? ApiBookmarkService.markAsRead(id) 
+      : MockService.markAsRead(id);
+  },
+  
+  addBookmark: async (bookmark: { title: string; url: string }): Promise<Bookmark> => {
+    return useRealApi 
+      ? ApiBookmarkService.addBookmark(bookmark) 
+      : MockService.addBookmark(bookmark);
+  },
+  
+  deleteBookmark: async (id: number): Promise<void> => {
+    return useRealApi 
+      ? ApiBookmarkService.deleteBookmark(id) 
+      : MockService.deleteBookmark(id);
   }
 };

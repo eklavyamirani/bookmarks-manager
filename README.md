@@ -3,7 +3,14 @@
  - the readme updates are manual.
 
 Progress:
-<img width="1073" alt="IMG_9984" src="https://github.com/user-attachments/assets/a10e2ee3-98b5-4cf7-ac77-972de299918a" />
+![After adding backend API](progress.png)
+
+## Prompts used
+1. Rewrite this app in typescript
+2. update the frontend application to implement a bookmark manager for web urls. I want the ability to list bookmarks and mark them as read. For the frontend app, create a new mock api to return the bookmarks. The bookmark has a url, a title, create_date, read_date.
+    a. {One compiler error. copy pasted and resolved.}
+3. now implement the api logic in the backend app and wire it up with the frontend app. For now, the backend app should use a mock api layer. the frontend app should have an option to use its mock api or to use the backend api.
+    a. can you instead use the proxy setting on the frontend app to solve the cors issue?
 
 
 ## Setup instructions

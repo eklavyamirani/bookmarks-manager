@@ -4,9 +4,10 @@ import { Bookmark } from '../models/Bookmark';
 interface BookmarkListProps {
   bookmarks: Bookmark[];
   onMarkAsRead: (id: number) => void;
+  onDeleteBookmark: (id: number) => void;
 }
 
-const BookmarkList: React.FC<BookmarkListProps> = ({ bookmarks, onMarkAsRead }) => {
+const BookmarkList: React.FC<BookmarkListProps> = ({ bookmarks, onMarkAsRead, onDeleteBookmark }) => {
   return (
     <div className="bookmark-list">
       <h2>Bookmarks</h2>
@@ -41,6 +42,12 @@ const BookmarkList: React.FC<BookmarkListProps> = ({ bookmarks, onMarkAsRead }) 
                     Mark as read
                   </button>
                 )}
+                <button 
+                  onClick={() => onDeleteBookmark(bookmark.id)}
+                  className="delete-button"
+                >
+                  Delete
+                </button>
               </div>
             </li>
           ))}
