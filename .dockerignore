@@ -1,0 +1,28 @@
+# Backend
+bookmark-manager-backend/bin/
+bookmark-manager-backend/obj/
+
+# Frontend
+bookmark-manager-frontend/node_modules/
+bookmark-manager-frontend/build/
+bookmark-manager-frontend/npm-debug.log
+bookmark-manager-frontend/.env.local
+bookmark-manager-frontend/.env.development.local
+bookmark-manager-frontend/.env.test.local
+bookmark-manager-frontend/.env.production.local
+
+# Git
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docstates
+
+# Other
+.DS_Store
+README.md
+*.md
