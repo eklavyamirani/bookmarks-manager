@@ -1,3 +1,5 @@
+[![Docker Image CI](https://github.com/eklavyamirani/bookmarks-manager/actions/workflows/docker-image.yml/badge.svg)](https://github.com/eklavyamirani/bookmarks-manager/actions/workflows/docker-image.yml)
+
 ## The goal of this project is to code with LLM. 
  - the devcontainer setup was manual.
  - the readme updates are manual.
