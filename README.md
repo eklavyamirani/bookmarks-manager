@@ -22,6 +22,7 @@
     3. move the docker related files to /deploy
     4. {copy pasted error due to incorrect paths after move}
     5. {manually removed the backend api port expose. removed the version on docker compose.}
+6. create another github action to publish the docker image to github packages. The trigger is on new release.
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
