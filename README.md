@@ -24,6 +24,12 @@
     4. {copy pasted error due to incorrect paths after move}
     5. {manually removed the backend api port expose. removed the version on docker compose.}
 6. create another github action to publish the docker image to github packages. The trigger is on new release.
+7. in the backend app, remove default passwords.
+8. change the code to also pull the postgres host from an environment variable.
+9. also update the appsettings with the updated connection string template.
+10. add the environment variable to .env_sample
+11. can you also update the backend app to use the table name from an environment variable?
+    1. {Failed. Sets the search path in the connection string, which is not correct.}
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)

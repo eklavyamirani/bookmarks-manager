@@ -16,17 +16,23 @@ public class Program
         // Add the bookmark service implementation based on the configuration
         if (usePostgres)
         {
-            // Get PostgreSQL connection details from environment variables or use defaults
-            string postgresUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "postgres";
-            string postgresPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "postgres";
-            string postgresDb = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "bookmarks";
+            // Get PostgreSQL connection details from environment variables
+            string postgresUser = Environment.GetEnvironmentVariable("POSTGRES_USER") 
+                ?? throw new InvalidOperationException("POSTGRES_USER environment variable is not set");
+            string postgresPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") 
+                ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is not set");
+            string postgresDb = Environment.GetEnvironmentVariable("POSTGRES_DB") 
+                ?? throw new InvalidOperationException("POSTGRES_DB environment variable is not set");
+            string postgresHost = Environment.GetEnvironmentVariable("POSTGRES_HOST") 
+                ?? throw new InvalidOperationException("POSTGRES_HOST environment variable is not set");
             
             // Get the connection string template from configuration
             string connectionStringTemplate = builder.Configuration.GetConnectionString("PostgresConnection") ?? 
-                "Host=localhost;Database={PostgresDb};Username={PostgresUser};Password={PostgresPassword}";
+                "Host={PostgresHost};Database={PostgresDb};Username={PostgresUser};Password={PostgresPassword}";
             
             // Replace placeholders with actual values
             string connectionString = connectionStringTemplate
+                .Replace("{PostgresHost}", postgresHost)
                 .Replace("{PostgresUser}", postgresUser)
                 .Replace("{PostgresPassword}", postgresPassword)
                 .Replace("{PostgresDb}", postgresDb);
@@ -46,7 +52,7 @@ public class Program
             var logger = LoggerFactory.Create(builder => builder.AddConsole())
                                       .CreateLogger<Program>();
             logger.LogInformation("Using PostgreSQL implementation for bookmark service");
-            logger.LogInformation($"PostgreSQL connection: Host=localhost;Database={postgresDb};Username={postgresUser}");
+            logger.LogInformation($"PostgreSQL connection: Host={postgresHost};Database={postgresDb};Username={postgresUser}");
         }
         else
         {
