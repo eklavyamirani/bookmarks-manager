@@ -30,6 +30,8 @@
 10. add the environment variable to .env_sample
 11. can you also update the backend app to use the table name from an environment variable?
     1. {Failed. Sets the search path in the connection string, which is not correct.}
+12. Add a host name property to postgres. This property should come from the dot env file.
+    1. Use the specific property for POSTGRES HOST in ENV to get this property.
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
