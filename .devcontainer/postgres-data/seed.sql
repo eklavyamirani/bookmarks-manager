@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS saved_links (
     id SERIAL PRIMARY KEY,
     link VARCHAR(1000) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
+    read_date TIMESTAMP DEFAULT NOW(),
     deleted_at TIMESTAMP NULL,
     ip_address VARCHAR(45),
     title VARCHAR(255)
