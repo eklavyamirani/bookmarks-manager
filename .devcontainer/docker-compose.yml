@@ -26,15 +26,13 @@ services:
 
   db:
     image: postgres:14.3
+    container_name: db
     restart: unless-stopped
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-data/:/docker-entrypoint-initdb.d/
     env_file:
       - .postgres.env
 
       
     # Add "forwardPorts": ["5432"] to **devcontainer.json** to forward PostgreSQL locally.
-    # (Adding the "ports" property to this file will not forward from a Codespace.)
-
-volumes:
-  postgres-data:
+    # (Adding the "ports" property to this file will no`t forward from a Codespace.)

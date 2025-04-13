@@ -1,2 +1,3 @@
 # this can potentially store secrets. Ignore
 .postgres.env
+*seed_data.sql
