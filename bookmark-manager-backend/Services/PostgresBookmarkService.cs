@@ -82,9 +82,9 @@ namespace BookmarkManager.Services
             return new Bookmark
             {
                 Id = savedLink.Id,
-                Url = savedLink.Link,
-                Title = savedLink.Title ?? string.Empty,
-                CreateDate = savedLink.CreatedAt ?? DateTime.UtcNow,
+                Url = savedLink.Link!,
+                Title = savedLink.Title,
+                CreateDate = savedLink.CreatedAt,
                 ReadDate = savedLink.ReadDate
             };
         }
