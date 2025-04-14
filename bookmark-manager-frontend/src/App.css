@@ -15,14 +15,14 @@
 
 .App-header {
   background-color: #282c34;
-  min-height: 100vh;
+  min-height: auto;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+  justify-content: space-between;
+  font-size: calc(10px + 1vmin);
   color: white;
-  padding: 20px;
+  padding: 15px 30px;
 }
 
 .App-link {
@@ -104,20 +104,39 @@
   padding: 15px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 .bookmark-item.read {
   background-color: #f9f9f9;
 }
 
+.bookmark-info {
+  flex: 1;
+  min-width: 0; /* Important for text overflow handling */
+  margin-right: 15px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
 .bookmark-info h3 {
   margin: 0 0 10px 0;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 .bookmark-info a {
   color: #0066cc;
   text-decoration: none;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 .bookmark-info a:hover {
@@ -140,13 +159,40 @@
   background-color: #2196F3;
   color: white;
   border: none;
-  padding: 5px 10px;
+  padding: 8px 12px;
   border-radius: 3px;
   cursor: pointer;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
 }
 
 .mark-read-button:hover {
   background-color: #0b7dda;
+}
+
+.delete-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+.delete-button:hover {
+  background-color: #d32f2f;
+}
+
+.bookmark-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 110px;
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .error-message {

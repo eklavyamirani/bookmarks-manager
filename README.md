@@ -33,6 +33,10 @@
 12. Add a host name property to postgres. This property should come from the dot env file.
     1. Use the specific property for POSTGRES HOST in ENV to get this property.
 13. change this code to use db first entity approach
+14. Fix the following issues in the frontend app: 1. some links dont have titles, use the link. 2. created dates are all showing as invalid date. 3. mark as read has inconsistent styling where it becomes longer when the title is multiple lines. 4. the banner is too large and covers the whole page, make it just a header.
+15. all created dates are showing up as Invalid Date
+16. when the content is long, the title and the buttons run out of bounds of the component to the right
+17. add all my prompts to the readme.md under the ```## prompts used``` section.
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
