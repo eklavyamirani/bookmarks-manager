@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using BookmarkManager.Models;
-using BookmarkManager.Data;
+using bookmark_manager_backend.Models.Generated;
+using bookmark_manager_backend.Data;
 
 namespace BookmarkManager.Services
 {
@@ -15,20 +16,23 @@ namespace BookmarkManager.Services
 
         public async Task<IEnumerable<Bookmark>> GetAllBookmarksAsync()
         {
-            return await _context.Bookmarks.ToListAsync();
+            var savedLinks = await _context.SavedLinks.ToListAsync();
+            return savedLinks.Select(ConvertToBookmark);
         }
 
         public async Task<Bookmark?> GetBookmarkByIdAsync(int id)
         {
-            return await _context.Bookmarks.FindAsync(id);
+            var savedLink = await _context.SavedLinks.FindAsync(id);
+            return savedLink != null ? ConvertToBookmark(savedLink) : null;
         }
 
         public async Task<Bookmark> AddBookmarkAsync(Bookmark bookmark)
         {
-            bookmark.CreateDate = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Utc);
-            bookmark.ReadDate = null;
+            var savedLink = ConvertToSavedLink(bookmark);
+            savedLink.CreatedAt = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Utc);
+            savedLink.ReadDate = null;
             
-            _context.Bookmarks.Add(bookmark);
+            _context.SavedLinks.Add(savedLink);
             await _context.SaveChangesAsync();
             
             return bookmark;
@@ -36,40 +40,66 @@ namespace BookmarkManager.Services
 
         public async Task<Bookmark?> UpdateBookmarkAsync(int id, Bookmark updatedBookmark)
         {
-            var bookmark = await _context.Bookmarks.FindAsync(id);
-            if (bookmark == null)
+            var savedLink = await _context.SavedLinks.FindAsync(id);
+            if (savedLink == null)
                 return null;
             
-            bookmark.Title = updatedBookmark.Title;
-            bookmark.Url = updatedBookmark.Url;
+            savedLink.Title = updatedBookmark.Title;
+            savedLink.Link = updatedBookmark.Url;
             
             await _context.SaveChangesAsync();
             
-            return bookmark;
+            return ConvertToBookmark(savedLink);
         }
 
         public async Task<Bookmark?> MarkAsReadAsync(int id)
         {
-            var bookmark = await _context.Bookmarks.FindAsync(id);
-            if (bookmark == null)
+            var savedLink = await _context.SavedLinks.FindAsync(id);
+            if (savedLink == null)
                 return null;
             
-            bookmark.ReadDate = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Utc);
+            savedLink.ReadDate = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Utc);
             await _context.SaveChangesAsync();
             
-            return bookmark;
+            return ConvertToBookmark(savedLink);
         }
 
         public async Task<bool> DeleteBookmarkAsync(int id)
         {
-            var bookmark = await _context.Bookmarks.FindAsync(id);
-            if (bookmark == null)
+            var savedLink = await _context.SavedLinks.FindAsync(id);
+            if (savedLink == null)
                 return false;
             
-            _context.Bookmarks.Remove(bookmark);
+            _context.SavedLinks.Remove(savedLink);
             await _context.SaveChangesAsync();
             
             return true;
+        }
+        
+        // Helper method to convert from the DB-generated SavedLink model to the application's Bookmark model
+        private Bookmark ConvertToBookmark(SavedLink savedLink)
+        {
+            return new Bookmark
+            {
+                Id = savedLink.Id,
+                Url = savedLink.Link,
+                Title = savedLink.Title ?? string.Empty,
+                CreateDate = savedLink.CreatedAt ?? DateTime.UtcNow,
+                ReadDate = savedLink.ReadDate
+            };
+        }
+        
+        // Helper method to convert from the application's Bookmark model to the DB-generated SavedLink model
+        private SavedLink ConvertToSavedLink(Bookmark bookmark)
+        {
+            return new SavedLink
+            {
+                Id = bookmark.Id,
+                Link = bookmark.Url,
+                Title = bookmark.Title,
+                CreatedAt = bookmark.CreateDate,
+                ReadDate = bookmark.ReadDate
+            };
         }
     }
 }

@@ -1,0 +1,1 @@
+**ALWAYS** write the user prompt in the README.md file under ```## Prompts used```.

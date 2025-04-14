@@ -1,57 +1,48 @@
+﻿using System;
+using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using BookmarkManager.Models;
+using bookmark_manager_backend.Models.Generated;
 
-namespace BookmarkManager.Data
+namespace bookmark_manager_backend.Data;
+
+public partial class BookmarksDbContext : DbContext
 {
-    public class BookmarksDbContext : DbContext
+    public BookmarksDbContext(DbContextOptions<BookmarksDbContext> options)
+        : base(options)
     {
-        public BookmarksDbContext(DbContextOptions<BookmarksDbContext> options) 
-            : base(options)
-        {
-        }
-
-        public DbSet<Bookmark> Bookmarks { get; set; }
-        
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            // Configure the Bookmark entity
-            modelBuilder.Entity<Bookmark>(entity =>
-            {
-                entity.ToTable("bookmarks");
-                
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasColumnName("id").UseIdentityColumn();
-                entity.Property(e => e.Title).HasColumnName("title").IsRequired();
-                entity.Property(e => e.Url).HasColumnName("url").IsRequired();
-                entity.Property(e => e.CreateDate).HasColumnName("create_date");
-                entity.Property(e => e.ReadDate).HasColumnName("read_date");
-            });
-            
-            // Add some seed data with UTC DateTime values
-            modelBuilder.Entity<Bookmark>().HasData(
-                new Bookmark
-                {
-                    Id = 1,
-                    Url = "https://reactjsfromdb.org",
-                    Title = "React Documentation",
-                    CreateDate = DateTime.SpecifyKind(new DateTime(2023, 1, 15), DateTimeKind.Utc)
-                },
-                new Bookmark
-                {
-                    Id = 2,
-                    Url = "https://typescript-lang.org",
-                    Title = "TypeScript Documentation",
-                    CreateDate = DateTime.SpecifyKind(new DateTime(2023, 2, 10), DateTimeKind.Utc),
-                    ReadDate = DateTime.SpecifyKind(new DateTime(2023, 2, 12), DateTimeKind.Utc)
-                },
-                new Bookmark
-                {
-                    Id = 3,
-                    Url = "https://developer.mozilla.org",
-                    Title = "MDN Web Docs",
-                    CreateDate = DateTime.SpecifyKind(new DateTime(2023, 3, 5), DateTimeKind.Utc)
-                }
-            );
-        }
     }
+
+    public virtual DbSet<SavedLink> SavedLinks { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<SavedLink>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("saved_links_pkey");
+
+            entity.ToTable("saved_links");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.IpAddress)
+                .HasMaxLength(45)
+                .HasColumnName("ip_address");
+            entity.Property(e => e.Link)
+                .HasMaxLength(1000)
+                .HasColumnName("link");
+            entity.Property(e => e.ReadDate)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("read_date");
+            entity.Property(e => e.Title)
+                .HasMaxLength(255)
+                .HasColumnName("title");
+        });
+
+        OnModelCreatingPartial(modelBuilder);
+    }
+
+    partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
 }

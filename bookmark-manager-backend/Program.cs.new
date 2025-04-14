@@ -40,8 +40,7 @@ public class Program
             // Configure PostgreSQL connection with the built connection string
             builder.Services.AddDbContext<BookmarksDbContext>(options =>
                 options.UseNpgsql(connectionString));
-            
-            // Add the PostgreSQL bookmark service
+              // Add the PostgreSQL bookmark service
             builder.Services.AddScoped<BookmarkManager.Services.IBookmarkService, BookmarkManager.Services.PostgresBookmarkService>();
             
             // Log that we're using PostgreSQL
@@ -55,8 +54,7 @@ public class Program
             logger.LogInformation($"PostgreSQL connection: Host={postgresHost};Database={postgresDb};Username={postgresUser}");
         }
         else
-        {
-            // Use the mock bookmark service
+        {            // Use the mock bookmark service
             builder.Services.AddSingleton<BookmarkManager.Services.IBookmarkService, BookmarkManager.Services.MockBookmarkService>();
             
             // Log that we're using the mock implementation
