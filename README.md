@@ -37,6 +37,12 @@
 15. all created dates are showing up as Invalid Date
 16. when the content is long, the title and the buttons run out of bounds of the component to the right
 17. add all my prompts to the readme.md under the ```## prompts used``` section.
+18. Now let's add support for MCP (model context protocol) so I can use an MCP client for the bookmarks manager.
+19. @agent Continue: "Continue to iterate?"
+20. Please continue
+21. When I use the mcp server on the mcp client (vscode) using the url as http://localhost:5000/mcp/tasks I don't see any tools being discovered.
+22. @agent Continue: "Continue to iterate?"
+23. Please continue
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
@@ -67,3 +73,36 @@ dotnet new apicontroller --actions --name <controller name>
 cd deploy
 docker compose up --build
 ```
+
+## Model Context Protocol (MCP) Support
+
+This application now supports the Model Context Protocol (MCP), allowing AI assistants to interact with the bookmarks manager. The MCP implementation provides the following endpoints:
+
+- **POST /mcp/initialize** - Initialize the MCP client
+- **GET /mcp/initialize** - Initialize the MCP client (GET method)
+- **GET /mcp** - Server-Sent Events (SSE) endpoint for real-time updates
+- **POST /mcp/tasks** - Create a new task
+- **GET /mcp/tasks/{taskId}** - Get task status
+- **POST /mcp/tasks/{taskId}/artifacts** - Create an artifact
+- **GET /mcp/tasks/{taskId}/artifacts/{artifactId}** - Get an artifact
+
+All MCP operations are fully functional, including listing and retrieving bookmarks, creating new bookmarks, updating bookmarks, marking bookmarks as read, and deleting bookmarks.
+
+### MCP Client Configuration
+
+To connect to the MCP server from VS Code:
+
+1. Create a file at `.vscode/mcp.json` with the following content:
+```jsonc
+{
+    "servers": {
+        "bookmarks-manager": {
+            "url": "http://localhost:5000/mcp"
+        }
+    }
+}
+```
+
+2. Use the MCP client in VS Code to interact with the bookmarks manager.
+
+For detailed information on using the MCP implementation, see [MCP Documentation](docs/mcp.md).

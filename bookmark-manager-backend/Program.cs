@@ -1,6 +1,9 @@
 using BookmarkManager.Services;
+using BookmarkManager.Services.MCP;
 using bookmark_manager_backend.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Builder;
 
 namespace bookmark_manager_backend;
 
@@ -9,6 +12,12 @@ public class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
+        // Configure Kestrel for SSE
+        builder.Services.Configure<Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions>(options =>
+        {
+            options.AllowSynchronousIO = true;
+        });
 
         // Read the configuration to determine which implementation to use
         bool usePostgres = builder.Configuration.GetValue<bool>("UsePostgres");
@@ -36,10 +45,13 @@ public class Program
                 .Replace("{PostgresUser}", postgresUser)
                 .Replace("{PostgresPassword}", postgresPassword)
                 .Replace("{PostgresDb}", postgresDb);
+                
+            // Removed timestamp behavior setting for now
             
             // Configure PostgreSQL connection with the built connection string
             builder.Services.AddDbContext<BookmarksDbContext>(options =>
-                options.UseNpgsql(connectionString));
+                options.UseNpgsql(connectionString, npgsqlOptions =>
+                    npgsqlOptions.SetPostgresVersion(9, 6)));
             
             // Add the PostgreSQL bookmark service
             builder.Services.AddScoped<BookmarkManager.Services.IBookmarkService, BookmarkManager.Services.PostgresBookmarkService>();
@@ -47,25 +59,35 @@ public class Program
             // Log that we're using PostgreSQL
             builder.Services.AddLogging(logging =>
             {
-                logging.AddConsole().AddFilter(level => level >= LogLevel.Information);
+                logging.AddConsole();
+                logging.AddDebug();
             });
-            var logger = LoggerFactory.Create(builder => builder.AddConsole())
-                                      .CreateLogger<Program>();
-            logger.LogInformation("Using PostgreSQL implementation for bookmark service");
-            logger.LogInformation($"PostgreSQL connection: Host={postgresHost};Database={postgresDb};Username={postgresUser}");
+            
+            builder.Services.AddHttpContextAccessor();
+            
+            builder.Logging.AddConsole();
+            builder.Logging.AddDebug();
+            
+            builder.Services.AddLogging(logging =>
+            {
+                logging.AddConsole();
+                logging.AddDebug();
+            });
+            
+            // Log PostgreSQL connections
+            Console.WriteLine($"Using PostgreSQL implementation for bookmark service");
+            Console.WriteLine($"PostgreSQL connection: Host={postgresHost};Database={postgresDb};Username={postgresUser}");
         }
         else
         {
-            // Use the mock bookmark service
+            // Add the mock bookmark service
             builder.Services.AddSingleton<BookmarkManager.Services.IBookmarkService, BookmarkManager.Services.MockBookmarkService>();
             
             // Log that we're using the mock implementation
-            var logger = LoggerFactory.Create(builder => builder.AddConsole())
-                                      .CreateLogger<Program>();
-            logger.LogInformation("Using mock implementation for bookmark service");
+            Console.WriteLine($"Using mock implementation for bookmark service");
         }
 
-        // Configure a more permissive CORS policy
+        // Configure CORS for SSE connections
         builder.Services.AddCors(options =>
         {
             options.AddDefaultPolicy(policy =>
@@ -76,10 +98,20 @@ public class Program
                 // Note: Can't use AllowCredentials with AllowAnyOrigin
             });
         });
+        
+        // Register the MCP service
+        builder.Services.AddSingleton<BookmarkManager.Services.MCP.IMCPService, BookmarkManager.Services.MCP.MCPService>();
 
-        builder.Services.AddControllers();
-        // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-        builder.Services.AddOpenApi();
+        builder.Services.AddControllers()
+               .AddJsonOptions(options => {
+                   // Configure JSON serialization settings for MCP
+                   options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                   options.JsonSerializerOptions.WriteIndented = true;
+               });
+        
+        // Add OpenAPI/Swagger
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen();
 
         var app = builder.Build();
 
@@ -91,6 +123,7 @@ public class Program
             using (var scope = app.Services.CreateScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<BookmarksDbContext>();
+                // Ensure the database exists
                 dbContext.Database.EnsureCreated();
             }
         }
@@ -101,13 +134,12 @@ public class Program
         // Other middleware
         if (app.Environment.IsDevelopment())
         {
-            app.MapOpenApi();
+            app.UseSwagger();
+            app.UseSwaggerUI();
         }
 
-        app.UseRouting();
-        
         app.UseHttpsRedirection();
-        
+
         app.UseAuthorization();
         
         app.MapControllers();

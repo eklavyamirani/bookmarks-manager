@@ -29,7 +29,8 @@ namespace BookmarkManager.Services
         public async Task<Bookmark> AddBookmarkAsync(Bookmark bookmark)
         {
             var savedLink = ConvertToSavedLink(bookmark);
-            savedLink.CreatedAt = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Utc);
+            // Using DateTime.Now with Unspecified kind to avoid PostgreSQL timestamp conflicts
+            savedLink.CreatedAt = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Unspecified);
             savedLink.ReadDate = null;
             
             _context.SavedLinks.Add(savedLink);
