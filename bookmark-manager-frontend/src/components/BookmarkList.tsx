@@ -1,11 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Bookmark } from '../models/Bookmark';
 
 // Helper function to format dates properly
 const formatDate = (dateInput: any): string => {
-  // Log the exact input for debugging
-  console.log('Date input:', dateInput, 'Type:', typeof dateInput);
-  
   // Handle null, undefined or empty string cases
   if (dateInput === null || dateInput === undefined || dateInput === '') {
     return 'No date available';
@@ -44,13 +41,15 @@ const formatDate = (dateInput: any): string => {
     }
     
     // If we reached here, date couldn't be parsed successfully
-    console.warn(`Could not parse date:`, dateInput);
     return 'Date format error';
   } catch (error) {
     console.error('Error parsing date:', dateInput, error);
     return 'Date error';
   }
 };
+
+type SortField = 'date' | 'title';
+type SortDirection = 'asc' | 'desc';
 
 interface BookmarkListProps {
   bookmarks: Bookmark[];
@@ -59,24 +58,71 @@ interface BookmarkListProps {
 }
 
 const BookmarkList: React.FC<BookmarkListProps> = ({ bookmarks, onMarkAsRead, onDeleteBookmark }) => {
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Sorting function
+  const sortedBookmarks = useMemo(() => {
+    const sorted = [...bookmarks].sort((a, b) => {
+      if (sortField === 'date') {
+        const dateA = new Date(a.create_date || a.created_at || '');
+        const dateB = new Date(b.create_date || b.created_at || '');
+        
+        if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
+        if (isNaN(dateA.getTime())) return 1;
+        if (isNaN(dateB.getTime())) return -1;
+        
+        return sortDirection === 'asc' 
+          ? dateA.getTime() - dateB.getTime()
+          : dateB.getTime() - dateA.getTime();
+      } else {
+        const titleA = (a.title || '').toLowerCase();
+        const titleB = (b.title || '').toLowerCase();
+        
+        return sortDirection === 'asc' 
+          ? titleA.localeCompare(titleB)
+          : titleB.localeCompare(titleA);
+      }
+    });
+    
+    return sorted;
+  }, [bookmarks, sortField, sortDirection]);
   
   useEffect(() => {
-    if (bookmarks.length > 0) {
-      console.log('All bookmarks date info:');
-      bookmarks.forEach(bookmark => {
-        console.log(`ID ${bookmark.id} - Type: ${typeof bookmark.create_date}, Value: "${bookmark.create_date}", Raw: ${JSON.stringify(bookmark)}`);
-      });
-    }
+    // Debug logging removed for production
   }, [bookmarks]);
 
   return (
     <div className="bookmark-list">
-      <h2>Bookmarks</h2>
+      <div className="bookmark-list-header">
+        <h2>Bookmarks</h2>
+        <div className="sort-controls">
+          <label htmlFor="sort-field">Sort by:</label>
+          <select 
+            id="sort-field"
+            value={sortField} 
+            onChange={(e) => setSortField(e.target.value as SortField)}
+            className="sort-select"
+          >
+            <option value="date">Create Date</option>
+            <option value="title">Title (A-Z)</option>
+          </select>
+          
+          <button 
+            onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+            className="sort-direction-button"
+            title={`Currently sorting ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+          >
+            {sortDirection === 'asc' ? '↑' : '↓'}
+          </button>
+        </div>
+      </div>
+      
       {bookmarks.length === 0 ? (
         <p>No bookmarks available.</p>
       ) : (
         <ul className="bookmark-items">
-          {bookmarks.map((bookmark) => (
+          {sortedBookmarks.map((bookmark) => (
             <li key={bookmark.id} className={`bookmark-item ${bookmark.read_date ? 'read' : 'unread'}`}>
               <div className="bookmark-info">
                 <h3>

@@ -37,6 +37,7 @@
 15. all created dates are showing up as Invalid Date
 16. when the content is long, the title and the buttons run out of bounds of the component to the right
 17. add all my prompts to the readme.md under the ```## prompts used``` section.
+18. Add ability to sort the list of bookmarks. Sorting should be possible in ascending and descending order for the following dimensions: - Create date - Alphabetical
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
