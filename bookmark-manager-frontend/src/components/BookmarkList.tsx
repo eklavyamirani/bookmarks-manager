@@ -60,10 +60,23 @@ interface BookmarkListProps {
 const BookmarkList: React.FC<BookmarkListProps> = ({ bookmarks, onMarkAsRead, onDeleteBookmark }) => {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Sorting function
+  // Filtering and sorting function
   const sortedBookmarks = useMemo(() => {
-    const sorted = [...bookmarks].sort((a, b) => {
+    // First filter bookmarks based on search term
+    const filtered = bookmarks.filter((bookmark) => {
+      if (!searchTerm.trim()) return true;
+      
+      const title = (bookmark.title || '').toLowerCase();
+      const url = (bookmark.url || bookmark.link || '').toLowerCase();
+      const searchLower = searchTerm.toLowerCase();
+      
+      return title.includes(searchLower) || url.includes(searchLower);
+    });
+    
+    // Then sort the filtered results
+    const sorted = [...filtered].sort((a, b) => {
       if (sortField === 'date') {
         const dateA = new Date(a.created_at || '');
         const dateB = new Date(b.created_at || '');
@@ -86,7 +99,7 @@ const BookmarkList: React.FC<BookmarkListProps> = ({ bookmarks, onMarkAsRead, on
     });
     
     return sorted;
-  }, [bookmarks, sortField, sortDirection]);
+  }, [bookmarks, sortField, sortDirection, searchTerm]);
   
   useEffect(() => {
     // Debug logging removed for production
@@ -96,30 +109,45 @@ const BookmarkList: React.FC<BookmarkListProps> = ({ bookmarks, onMarkAsRead, on
     <div className="bookmark-list">
       <div className="bookmark-list-header">
         <h2>Bookmarks</h2>
-        <div className="sort-controls">
-          <label htmlFor="sort-field">Sort by:</label>
-          <select 
-            id="sort-field"
-            value={sortField} 
-            onChange={(e) => setSortField(e.target.value as SortField)}
-            className="sort-select"
-          >
-            <option value="date">Create Date</option>
-            <option value="title">Title (A-Z)</option>
-          </select>
-          
-          <button 
-            onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-            className="sort-direction-button"
-            title={`Currently sorting ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
-          >
-            {sortDirection === 'asc' ? '↑' : '↓'}
-          </button>
+        <div className="controls-container">
+          <div className="search-controls">
+            <label htmlFor="search-input">Search:</label>
+            <input
+              id="search-input"
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search titles and URLs..."
+              className="search-input"
+            />
+          </div>
+          <div className="sort-controls">
+            <label htmlFor="sort-field">Sort by:</label>
+            <select 
+              id="sort-field"
+              value={sortField} 
+              onChange={(e) => setSortField(e.target.value as SortField)}
+              className="sort-select"
+            >
+              <option value="date">Create Date</option>
+              <option value="title">Title (A-Z)</option>
+            </select>
+            
+            <button 
+              onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+              className="sort-direction-button"
+              title={`Currently sorting ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+            >
+              {sortDirection === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
         </div>
       </div>
       
       {bookmarks.length === 0 ? (
         <p>No bookmarks available.</p>
+      ) : sortedBookmarks.length === 0 ? (
+        <p>No bookmarks match your search criteria.</p>
       ) : (
         <ul className="bookmark-items">
           {sortedBookmarks.map((bookmark) => (
