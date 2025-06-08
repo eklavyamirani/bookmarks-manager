@@ -9,21 +9,21 @@ const mockBookmarks: Bookmark[] = [
     id: 1,
     title: 'Z Website',
     url: 'https://z-website.com',
-    create_date: '2023-01-15T10:00:00Z',
+    created_at: '2023-01-15T10:00:00Z',
     read_date: null
   },
   {
     id: 2,
     title: 'A Website',
     url: 'https://a-website.com',
-    create_date: '2023-01-10T10:00:00Z',
+    created_at: '2023-01-10T10:00:00Z',
     read_date: null
   },
   {
     id: 3,
     title: 'M Website',
     url: 'https://m-website.com',
-    create_date: '2023-01-20T10:00:00Z',
+    created_at: '2023-01-20T10:00:00Z',
     read_date: null
   }
 ];

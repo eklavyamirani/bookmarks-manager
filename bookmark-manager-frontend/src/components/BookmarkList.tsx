@@ -65,8 +65,8 @@ const BookmarkList: React.FC<BookmarkListProps> = ({ bookmarks, onMarkAsRead, on
   const sortedBookmarks = useMemo(() => {
     const sorted = [...bookmarks].sort((a, b) => {
       if (sortField === 'date') {
-        const dateA = new Date(a.create_date || a.created_at || '');
-        const dateB = new Date(b.create_date || b.created_at || '');
+        const dateA = new Date(a.created_at || '');
+        const dateB = new Date(b.created_at || '');
         
         if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
         if (isNaN(dateA.getTime())) return 1;
@@ -132,7 +132,7 @@ const BookmarkList: React.FC<BookmarkListProps> = ({ bookmarks, onMarkAsRead, on
                 </h3>
                 <p className="bookmark-url">{bookmark.url || bookmark.link}</p>
                 <p className="bookmark-date">
-                  Created: {formatDate(bookmark.create_date || bookmark.created_at)}
+                  Created: {formatDate(bookmark.created_at)}
                 </p>
                 {bookmark.read_date && (
                   <p className="bookmark-date">

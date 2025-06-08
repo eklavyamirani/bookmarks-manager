@@ -7,21 +7,21 @@ const mockBookmarks: Bookmark[] = [
     id: 1,
     url: "https://reactjs.org",
     title: "React Documentation",
-    create_date: new Date(2023, 0, 15).toISOString(),
+    created_at: new Date(2023, 0, 15).toISOString(),
     read_date: null,
   },
   {
     id: 2,
     url: "https://typescript-lang.org",
     title: "TypeScript Documentation",
-    create_date: new Date(2023, 1, 10).toISOString(),
+    created_at: new Date(2023, 1, 10).toISOString(),
     read_date: new Date(2023, 1, 12).toISOString(),
   },
   {
     id: 3,
     url: "https://developer.mozilla.org",
     title: "MDN Web Docs",
-    create_date: new Date(2023, 2, 5).toISOString(),
+    created_at: new Date(2023, 2, 5).toISOString(),
     read_date: null,
   },
 ];
@@ -65,7 +65,7 @@ const MockService = {
         const newBookmark: Bookmark = {
           id: Math.max(...bookmarks.map(b => b.id), 0) + 1,
           ...bookmark,
-          create_date: new Date().toISOString(),
+          created_at: new Date().toISOString(),
           read_date: null
         };
         bookmarks.push(newBookmark);
