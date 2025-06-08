@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -12,6 +13,16 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Register the service worker for offline functionality
+serviceWorkerRegistration.register({
+  onSuccess: () => {
+    console.log('App is cached and ready for offline use');
+  },
+  onUpdate: () => {
+    console.log('New app version available');
+  }
+});
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))
