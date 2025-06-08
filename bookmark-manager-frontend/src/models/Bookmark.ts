@@ -3,7 +3,6 @@ export interface Bookmark {
   url?: string;
   link?: string;  // Backend uses 'link' instead of 'url'
   title: string | null;
-  create_date?: string;
-  created_at?: string;  // Backend uses 'created_at' instead of 'create_date'
+  created_at?: string;  // Backend uses 'created_at' for the creation date
   read_date: string | null;
 }
