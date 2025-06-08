@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Bookmarks",
+  "name": "Bookmark Manager",
+  "description": "A progressive web app for managing your bookmarks offline and online",
   "icons": [
     {
       "src": "favicon.ico",
@@ -21,5 +22,8 @@
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "scope": ".",
+  "categories": ["productivity", "utilities"]
 }
