@@ -6,7 +6,12 @@ const API_BASE_URL = '/api/bookmarks';
 export const ApiBookmarkService = {
   // Get all bookmarks from API
   getAllBookmarks: async (): Promise<Bookmark[]> => {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(API_BASE_URL, {
+      credentials: 'include', // Include cookies for authentication
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
     
     if (!response.ok) {
       throw new Error(`Error: ${response.status}`);
@@ -19,8 +24,10 @@ export const ApiBookmarkService = {
   markAsRead: async (id: number): Promise<Bookmark> => {
     const response = await fetch(`${API_BASE_URL}/${id}/read`, {
       method: 'PUT',
+      credentials: 'include', // Include cookies for authentication
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       }
     });
     
@@ -35,8 +42,10 @@ export const ApiBookmarkService = {
   addBookmark: async (bookmark: { title: string; url: string }): Promise<Bookmark> => {
     const response = await fetch(API_BASE_URL, {
       method: 'POST',
+      credentials: 'include', // Include cookies for authentication
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({
         title: bookmark.title,
@@ -54,7 +63,11 @@ export const ApiBookmarkService = {
   // Delete a bookmark via API
   deleteBookmark: async (id: number): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      credentials: 'include', // Include cookies for authentication
+      headers: {
+        'Accept': 'application/json'
+      }
     });
     
     if (!response.ok) {

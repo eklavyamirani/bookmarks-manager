@@ -1,6 +1,9 @@
 using BookmarkManager.Services;
 using bookmark_manager_backend.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using System.Security.Claims;
 
 namespace bookmark_manager_backend;
 
@@ -65,21 +68,63 @@ public class Program
             logger.LogInformation("Using mock implementation for bookmark service");
         }
 
-        // Configure a more permissive CORS policy
+        // Configure a more permissive CORS policy that supports credentials
         builder.Services.AddCors(options =>
         {
             options.AddDefaultPolicy(policy =>
             {
-                policy.AllowAnyOrigin()
+                policy.WithOrigins("http://localhost:3000", "http://localhost:8080") // Add your frontend URLs
                       .AllowAnyHeader()
-                      .AllowAnyMethod();
-                // Note: Can't use AllowCredentials with AllowAnyOrigin
+                      .AllowAnyMethod()
+                      .AllowCredentials(); // Required for authentication cookies
             });
         });
 
+        // Add authentication services
+        builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = "Cookies";
+            options.DefaultSignInScheme = "Cookies";
+            options.DefaultChallengeScheme = "GitHub";
+        })
+        .AddCookie("Cookies")
+        .AddOAuth("GitHub", options =>
+        {
+            options.ClientId = Environment.GetEnvironmentVariable("GITHUB_CLIENT_ID") 
+                ?? throw new InvalidOperationException("GITHUB_CLIENT_ID environment variable is not set");
+            options.ClientSecret = Environment.GetEnvironmentVariable("GITHUB_CLIENT_SECRET") 
+                ?? throw new InvalidOperationException("GITHUB_CLIENT_SECRET environment variable is not set");
+            
+            options.AuthorizationEndpoint = "https://github.com/login/oauth/authorize";
+            options.TokenEndpoint = "https://github.com/login/oauth/access_token";
+            options.UserInformationEndpoint = "https://api.github.com/user";
+            
+            options.Scope.Add("user:email");
+            
+            options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "login");
+            options.ClaimActions.MapJsonKey(ClaimTypes.Name, "name");
+            options.ClaimActions.MapJsonKey("urn:github:url", "html_url");
+            
+            options.Events.OnCreatingTicket = async context =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", context.AccessToken);
+                request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+                var response = await context.Backchannel.SendAsync(request, context.HttpContext.RequestAborted);
+                response.EnsureSuccessStatusCode();
+
+                var user = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                context.RunClaimActions(user.RootElement);
+            };
+        });
+
+        builder.Services.AddAuthorization();
+
         builder.Services.AddControllers();
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-        builder.Services.AddOpenApi();
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen();
 
         var app = builder.Build();
 
@@ -101,16 +146,62 @@ public class Program
         // Other middleware
         if (app.Environment.IsDevelopment())
         {
-            app.MapOpenApi();
+            app.UseSwagger();
+            app.UseSwaggerUI();
         }
 
         app.UseRouting();
         
         app.UseHttpsRedirection();
         
+        app.UseAuthentication();
         app.UseAuthorization();
         
         app.MapControllers();
+
+        // Add authentication endpoints
+        app.MapGet("/auth/login", (HttpContext context) =>
+        {
+            return Results.Challenge(new AuthenticationProperties
+            {
+                RedirectUri = "/auth/callback"
+            }, new List<string> { "GitHub" });
+        });
+
+        app.MapGet("/auth/callback", async (HttpContext context) =>
+        {
+            var result = await context.AuthenticateAsync();
+            if (result.Succeeded)
+            {
+                return Results.Redirect("/?auth=success");
+            }
+            return Results.Redirect("/?auth=failed");
+        });
+
+        app.MapPost("/auth/logout", async (HttpContext context) =>
+        {
+            await context.SignOutAsync("Cookies");
+            return Results.Ok(new { message = "Logged out successfully" });
+        });
+
+        app.MapGet("/auth/user", (HttpContext context) =>
+        {
+            if (context.User.Identity?.IsAuthenticated == true)
+            {
+                var claims = context.User.Claims.ToDictionary(c => c.Type, c => c.Value);
+                return Results.Ok(new
+                {
+                    authenticated = true,
+                    user = new
+                    {
+                        login = claims.GetValueOrDefault(ClaimTypes.NameIdentifier),
+                        name = claims.GetValueOrDefault(ClaimTypes.Name),
+                        url = claims.GetValueOrDefault("urn:github:url")
+                    }
+                });
+            }
+            return Results.Ok(new { authenticated = false });
+        });
 
         app.Run();
     }

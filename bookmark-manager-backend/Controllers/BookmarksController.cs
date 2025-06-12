@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using BookmarkManager.Models;
 using BookmarkManager.Services;
 
@@ -7,6 +8,7 @@ namespace BookmarkManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // Require authentication for all endpoints
     public class BookmarksController : ControllerBase
     {
         private readonly IBookmarkService _bookmarkService;

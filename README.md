@@ -36,9 +36,10 @@
 14. Fix the following issues in the frontend app: 1. some links dont have titles, use the link. 2. created dates are all showing as invalid date. 3. mark as read has inconsistent styling where it becomes longer when the title is multiple lines. 4. the banner is too large and covers the whole page, make it just a header.
 15. all created dates are showing up as Invalid Date
 16. when the content is long, the title and the buttons run out of bounds of the component to the right
-17. add all my prompts to the readme.md under the ```## prompts used``` section.
-18. Add ability to sort the list of bookmarks. Sorting should be possible in ascending and descending order for the following dimensions: - Create date - Alphabetical
-19. Add ability to search within the bookmarks
+18. add all my prompts to the readme.md under the ```## prompts used``` section.
+19. Add ability to sort the list of bookmarks. Sorting should be possible in ascending and descending order for the following dimensions: - Create date - Alphabetical
+20. Add ability to search within the bookmarks
+21. Add GitHub auth to the protect the app
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
