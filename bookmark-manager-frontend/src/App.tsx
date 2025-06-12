@@ -65,7 +65,7 @@ function App(): React.ReactElement {
   };
 
   const handleToggleApiMode = () => {
-    const newMode = toggleApiMode();
+    toggleApiMode();
     setApiMode(getApiMode());
     fetchBookmarks(); // Reload bookmarks with new API mode
   };
