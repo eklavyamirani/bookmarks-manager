@@ -50,6 +50,8 @@ ENV POSTGRES_USER=postgres
 ENV POSTGRES_PASSWORD=postgres
 ENV POSTGRES_DB=bookmarks
 ENV UsePostgres=true
+ENV GITHUB_CLIENT_ID=placeholder_client_id
+ENV GITHUB_CLIENT_SECRET=placeholder_client_secret
 
 # Start both services
 COPY deploy/start.sh ./
