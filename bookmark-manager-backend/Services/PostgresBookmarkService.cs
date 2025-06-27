@@ -29,7 +29,6 @@ namespace BookmarkManager.Services
         public async Task<Bookmark> AddBookmarkAsync(Bookmark bookmark)
         {
             var savedLink = ConvertToSavedLink(bookmark);
-            savedLink.CreatedAt = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Utc);
             savedLink.ReadDate = null;
             
             _context.SavedLinks.Add(savedLink);
@@ -58,7 +57,7 @@ namespace BookmarkManager.Services
             if (savedLink == null)
                 return null;
             
-            savedLink.ReadDate = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Utc);
+            savedLink.ReadDate = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Unspecified);
             await _context.SaveChangesAsync();
             
             return ConvertToBookmark(savedLink);

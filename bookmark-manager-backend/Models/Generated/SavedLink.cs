@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace bookmark_manager_backend.Models.Generated;
 
@@ -7,7 +8,7 @@ public partial class SavedLink
 {
     public int Id { get; set; }
 
-    public string? Link { get; set; }
+    public required string Link { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
