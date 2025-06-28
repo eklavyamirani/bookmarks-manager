@@ -1,6 +1,5 @@
 using bookmark_manager_backend.Data;
 using Microsoft.EntityFrameworkCore;
-using BookmarkManager.Services.McpTools;
 
 namespace bookmark_manager_backend;
 
@@ -66,9 +65,9 @@ public class Program
             logger.LogInformation("Using mock implementation for bookmark service");
         }
 
-        builder.Services.AddMcpServer()
+        var mcpBuilder = builder.Services.AddMcpServer()
             .WithHttpTransport()
-            .WithTools<EchoTool>();
+            .WithToolsFromAssembly();
 
         // Configure a more permissive CORS policy
         builder.Services.AddCors(options =>
