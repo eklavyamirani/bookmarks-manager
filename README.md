@@ -39,6 +39,7 @@
 17. add all my prompts to the readme.md under the ```## prompts used``` section.
 18. Add ability to sort the list of bookmarks. Sorting should be possible in ascending and descending order for the following dimensions: - Create date - Alphabetical
 19. Add ability to search within the bookmarks
+20. Need to publish arm64 version of the docker image
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
