@@ -48,6 +48,7 @@
 26. I want to be able to view these adr animations while reviewing PRs. Is there a simple way to get GH pages to show them as i am reviewing PRs?
 27. So option A creates a new repo for keeping these artifacts?
 28. Very smart. Yes, let's do this.
+29. excellent. Now, I need a way to reference parts of this animation to ask questions to you. Also, the "why" and "examples" are needed for comprehension
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
