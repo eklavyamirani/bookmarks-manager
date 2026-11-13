@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Graph in Postgres</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single 16:9 "stage" that plays seven scenes; captions and controls below it as page text.
+   Deliberate single dark look (night blueprint), so colors are set explicitly for both host themes. */
+:root{
+  --bg:#0b1422; --stage:#0f1c2f; --grid:#16263c; --ink:#e9eff6; --muted:#8fa3ba; --line:#2a3d57;
+  --teal:#40c3cc; --amber:#f2a93b; --coral:#f2735f; --green:#4fc78d;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.tag{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tag a{color:var(--teal)}
+.stage{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--stage)}
+svg#s{display:block;width:100%;height:auto}
+svg text{font-family:var(--f-body);fill:var(--ink)}
+.caption{display:grid;gap:6px;min-height:96px}
+.caption h1{font:800 clamp(24px,4vw,36px)/1.1 var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.caption p{margin:0;color:var(--muted);max-width:70ch;font-size:16px}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+button{font:500 14px/1 var(--f-body);color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:10px 16px;cursor:pointer}
+button:hover{border-color:var(--teal)}
+button:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+#play{background:var(--teal);border-color:var(--teal);color:var(--bg);min-width:92px}
+.dots{display:flex;gap:6px;flex:1;min-width:180px}
+.dots button{flex:1;height:8px;padding:0;border-radius:4px;border:0;background:var(--line);position:relative;overflow:hidden}
+.dots button i{position:absolute;inset:0;background:var(--teal);transform-origin:left;transform:scaleX(0)}
+.dots button.done i{transform:scaleX(1)}
+.count{font:500 13px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---- scene machinery ---- */
+.scene{opacity:0;visibility:hidden;transition:opacity .45s,visibility 0s .45s}
+.scene.on{opacity:1;visibility:visible;transition:opacity .45s}
+.pop{opacity:0;transform:translateY(14px);transform-box:fill-box;transform-origin:center;transition:opacity .55s var(--d,0s),transform .55s cubic-bezier(.2,.8,.2,1) var(--d,0s)}
+.scene.on .pop{opacity:1;transform:none}
+.zoom{opacity:0;transform:scale(.6);transform-box:fill-box;transform-origin:center;transition:opacity .45s var(--d,0s),transform .5s cubic-bezier(.3,1.6,.5,1) var(--d,0s)}
+.scene.on .zoom{opacity:1;transform:none}
+.draw{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .8s ease-out var(--d,0s)}
+.scene.on .draw{stroke-dashoffset:0}
+.late{opacity:0;transition:opacity .5s var(--d,0s)}
+.scene.on.p2 .late{opacity:1}
+.p2fade{transition:opacity .5s}
+.scene.on.p2 .p2fade{opacity:.28}
+
+/* shapes */
+.box{fill:var(--stage);stroke:var(--line);stroke-width:2}
+.box.bm{stroke:var(--teal)}
+.k{font:500 13px var(--f-mono)!important;fill:var(--muted)!important;letter-spacing:.06em}
+.big{font:700 22px var(--f-display)!important}
+.edge{stroke:var(--muted);stroke-width:2;fill:none}
+.lbl{font:500 14px var(--f-mono)!important;fill:var(--muted)!important}
+.row{fill:#13243a;stroke:var(--line)}
+.rowtxt{font:500 17px var(--f-mono)!important;fill:var(--muted)!important}
+
+/* scene 2 */
+.card{fill:#122036;stroke:var(--line);stroke-width:2;transition:stroke .5s,fill .5s}
+.scene.on.p2 .card.win{stroke:var(--green);fill:#123128}
+.bul{font-size:18px!important}
+.x{stroke:var(--coral);stroke-width:6;stroke-linecap:round}
+.stamp{font:800 18px var(--f-display)!important;letter-spacing:.08em}
+
+/* scene 3 */
+.tick{font:500 13px var(--f-mono)!important;fill:var(--muted)!important}
+.ax{stroke:var(--grid);stroke-width:1.5}
+.budget{stroke:var(--coral);stroke-width:2.5;stroke-dasharray:8 6}
+.bar{transform-box:fill-box;transform-origin:0 50%;transform:scaleX(0);transition:transform 1s cubic-bezier(.2,.8,.2,1) var(--d,0s),fill .6s}
+.scene.on .bar{transform:scaleX(1)}
+.bar.ok{fill:var(--green)}.bar.warn{fill:var(--amber)}.bar.crit{fill:var(--coral)}
+.scene.on.p2 .bar.q{transform:scaleX(var(--r));fill:var(--green);transition-delay:0s}
+.val{font:500 15px var(--f-mono)!important;fill:var(--muted)!important}
+.name{font-size:17px!important}
+.swapA{transition:opacity .4s}.scene.on.p2 .swapA{opacity:0}
+.swapB{opacity:0;transition:opacity .4s .5s}.scene.on.p2 .swapB{opacity:1}
+
+/* scene 4 */
+.step{fill:#122036;stroke:var(--line);stroke-width:2}
+.step.api{stroke:var(--teal)}
+.step.p2s{stroke-dasharray:7 6;fill:transparent}
+.ok201{fill:var(--green)}
+.token{fill:var(--amber)}
+
+/* scene 5 */
+.flip{transition:fill .6s,stroke .6s}
+.scene.on.p2 .flip{fill:#123128;stroke:var(--green)}
+.scene.on.p2 .hot{stroke:var(--green);stroke-width:3.5}
+.hot{transition:stroke .6s,stroke-width .6s}
+
+/* scene 6 */
+.flag{fill:#122036;stroke:var(--line);stroke-width:2}
+.sev{font:500 13px var(--f-mono)!important;letter-spacing:.08em}
+
+/* scene 7 */
+.huge{font:800 96px var(--f-display)!important;letter-spacing:-.02em}
+.num{font:800 64px var(--f-display)!important;fill:var(--teal)!important;font-variant-numeric:tabular-nums}
+
+@media (prefers-reduced-motion:reduce){
+  .scene,.pop,.zoom,.draw,.late,.bar,.flip,.hot,.card,.swapA,.swapB,.p2fade{transition:none!important}
+}
+</style>
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="top">
+    <span class="tag">ADR 0001 · issue #15 · <a href="https://github.com/eklavyamirani/bookmarks-manager/pull/16" target="_blank" rel="noopener">PR #16</a> · <a href="0001-review.html">Review page</a></span>
+    <span class="count" id="count">1 / 7</span>
+  </div>
+
+  <div class="stage">
+  <svg id="s" viewBox="0 0 960 540" role="img" aria-labelledby="capTitle">
+    <defs>
+      <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="var(--grid)" stroke-width="1"/></pattern>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--muted)"/></marker>
+    </defs>
+    <rect width="960" height="540" fill="url(#grid)"/>
+
+    <!-- 1: list to graph -->
+    <g class="scene" data-t="From a list to a graph" data-c="Today every bookmark is a row in one table. Issue #15 connects them to tags, domains, authors and each other.">
+      <text x="80" y="92" class="k">SAVED_LINKS TODAY</text>
+      <g class="pop" style="--d:.1s"><rect class="row" x="80" y="112" width="340" height="50" rx="6"/><text x="100" y="143" class="rowtxt">postgres.org/docs/mvcc</text></g>
+      <g class="pop" style="--d:.2s"><rect class="row" x="80" y="172" width="340" height="50" rx="6"/><text x="100" y="203" class="rowtxt">blog.example.org/pg-internals</text></g>
+      <g class="pop" style="--d:.3s"><rect class="row" x="80" y="232" width="340" height="50" rx="6"/><text x="100" y="263" class="rowtxt">wal.dev/intro</text></g>
+      <g class="pop" style="--d:.4s"><rect class="row" x="80" y="292" width="340" height="50" rx="6"/><text x="100" y="323" class="rowtxt">news.ycombinator.com/item…</text></g>
+      <g class="pop" style="--d:.5s"><rect class="row" x="80" y="352" width="340" height="50" rx="6"/><text x="100" y="383" class="rowtxt">github.com/apache/age</text></g>
+      <path class="draw" pathLength="1" d="M440 260 H500" stroke="var(--teal)" stroke-width="3" marker-end="url(#ar)" style="--d:1s"/>
+      <g id="g1edges"></g>
+      <g id="g1nodes"></g>
+    </g>
+
+    <!-- 2: three options -->
+    <g class="scene" data-t="Where should the graph live?" data-c="Issue #15 offered two engines. The ADR adds a third option and picks it: ordinary Postgres tables.">
+      <g class="pop" style="--d:.1s"><g class="p2fade">
+        <rect class="card" x="40" y="70" width="270" height="380" rx="12"/>
+        <text x="64" y="112" class="k">A</text><text x="64" y="146" class="big">Apache AGE</text>
+        <text x="64" y="200" class="bul">No official .NET driver</text>
+        <text x="64" y="240" class="bul">No graph algorithms</text>
+        <text x="64" y="280" class="bul">Custom image needed</text>
+        <text x="64" y="304" class="bul" style="fill:var(--muted)">to add pgvector</text>
+      </g></g>
+      <g class="pop" style="--d:.25s"><g class="p2fade">
+        <rect class="card" x="345" y="70" width="270" height="380" rx="12"/>
+        <text x="369" y="112" class="k">B</text><text x="369" y="146" class="big">Neo4j / Memgraph</text>
+        <text x="369" y="200" class="bul">Second datastore</text>
+        <text x="369" y="224" class="bul" style="fill:var(--muted)">plus syncing</text>
+        <text x="369" y="264" class="bul">JVM on an arm64 box</text>
+        <text x="369" y="304" class="bul">GPLv3 / BSL</text>
+      </g></g>
+      <g class="pop" style="--d:.4s">
+        <rect class="card win" x="650" y="70" width="270" height="380" rx="12"/>
+        <text x="674" y="112" class="k">C</text><text x="674" y="146" class="big">Postgres tables</text>
+        <text x="674" y="200" class="bul">One datastore</text>
+        <text x="674" y="240" class="bul">EF Core + Npgsql</text>
+        <text x="674" y="280" class="bul">Official pgvector image</text>
+        <text x="674" y="304" class="bul" style="fill:var(--muted)">amd64 + arm64</text>
+      </g>
+      <g class="late" style="--d:0s"><path class="x" d="M150 370 l50 50 M200 370 l-50 50"/><path class="x" d="M455 370 l50 50 M505 370 l-50 50"/></g>
+      <g class="late" style="--d:.3s"><rect x="700" y="372" width="170" height="44" rx="22" fill="var(--green)"/><text x="785" y="401" text-anchor="middle" class="stamp" style="fill:var(--bg)">PROPOSED</text></g>
+    </g>
+
+    <!-- 3: benchmark -->
+    <g class="scene" id="sc3" data-t="Is plain SQL fast enough?" data-c="p50 latency at the 10k-bookmark target, with 226k edges. Only the reading queue reaches the 300 ms budget, until its seeds are capped.">
+      <g id="chart"></g>
+    </g>
+
+    <!-- 4: save pipeline -->
+    <g class="scene" id="sc4" data-t="Saving stays instant" data-c="The API replies right after the insert. A background worker fetches and parses the page from a queue table in Postgres.">
+      <g id="pipe"></g>
+    </g>
+
+    <!-- 5: one id space -->
+    <g class="scene" data-t="Save a linked page, keep every link" data-c="A page that other bookmarks link to already has an id. Saving it changes only its kind, so the existing links become backlinks without rewriting a single row.">
+      <path class="edge hot draw" pathLength="1" d="M330 170 L585 255" marker-end="url(#ar)" style="--d:.5s"/>
+      <path class="edge hot draw" pathLength="1" d="M330 370 L585 285" marker-end="url(#ar)" style="--d:.7s"/>
+      <text x="440" y="190" class="lbl pop" style="--d:.9s">links_to</text>
+      <text x="440" y="368" class="lbl pop" style="--d:.9s">links_to</text>
+      <g class="pop" style="--d:.1s"><rect class="box bm" x="90" y="130" width="240" height="80" rx="10"/><text x="112" y="162" class="k">BOOKMARK #877</text><text x="112" y="192" style="font-size:19px">MVCC explained</text></g>
+      <g class="pop" style="--d:.25s"><rect class="box bm" x="90" y="330" width="240" height="80" rx="10"/><text x="112" y="362" class="k">BOOKMARK #1021</text><text x="112" y="392" style="font-size:19px">pg internals</text></g>
+      <g class="zoom" style="--d:.4s"><rect class="box flip" x="590" y="230" width="270" height="80" rx="10"/>
+        <text x="612" y="262" class="k swapA">URL_REF #4217</text><text x="612" y="262" class="k swapB" style="fill:var(--green)!important">BOOKMARK #4217</text>
+        <text x="612" y="292" style="font-size:19px">wal.dev/intro</text></g>
+      <g class="late" style="--d:.6s">
+        <rect x="590" y="340" width="270" height="88" rx="10" fill="#123128"/>
+        <text x="612" y="376" style="font:700 20px var(--f-display);fill:var(--green)">0 edges rewritten</text>
+        <text x="612" y="406" style="font-size:17px;fill:var(--ink)">2 new backlinks</text>
+      </g>
+    </g>
+
+    <!-- 6: flags -->
+    <g class="scene" data-t="Fix these on the way" data-c="Found while writing the ADR. One breaks the next Postgres upgrade, two are rules for the queries, one breaks the dev setup.">
+      <g class="zoom" style="--d:.1s"><rect class="flag" x="60" y="70" width="410" height="185" rx="12" style="stroke:var(--coral)"/>
+        <text x="86" y="108" class="sev" style="fill:var(--coral)">BREAKS ON UPGRADE</text>
+        <text x="86" y="146" class="big">Postgres 18 data path moved</text>
+        <text x="86" y="186" style="font:500 15px var(--f-mono);fill:var(--coral)">- /var/lib/postgresql/data</text>
+        <text x="86" y="214" style="font:500 15px var(--f-mono);fill:var(--green)">+ /var/lib/postgresql</text></g>
+      <g class="zoom" style="--d:.35s"><rect class="flag" x="490" y="70" width="410" height="185" rx="12"/>
+        <text x="516" y="108" class="sev" style="fill:var(--amber)">QUERY RULE</text>
+        <text x="516" y="146" class="big">Cap the queue's seeds</text>
+        <text x="516" y="186" style="font-size:17px;fill:var(--muted)">486 seeds: 285 ms</text>
+        <text x="516" y="214" style="font-size:17px;fill:var(--muted)">30 seeds: 22 ms</text></g>
+      <g class="zoom" style="--d:.6s"><rect class="flag" x="60" y="275" width="410" height="185" rx="12"/>
+        <text x="86" y="313" class="sev" style="fill:var(--amber)">QUERY RULE</text>
+        <text x="86" y="351" class="big">Penalize hubs in path search</text>
+        <text x="86" y="391" style="font:500 16px var(--f-mono);fill:var(--muted)">42 → popular tag → 2599</text>
+        <text x="86" y="419" style="font-size:17px;fill:var(--muted)">Correct, but useless</text></g>
+      <g class="zoom" style="--d:.85s"><rect class="flag" x="490" y="275" width="410" height="185" rx="12"/>
+        <text x="516" y="313" class="sev" style="fill:var(--amber)">BREAKS DEV SETUP</text>
+        <text x="516" y="351" class="big">Devcontainer is out of date</text>
+        <text x="516" y="391" style="font-size:17px;fill:var(--muted)">.NET 8 base, app targets net9.0</text>
+        <text x="516" y="419" style="font-size:17px;fill:var(--muted)">nvim download is arm64 only</text></g>
+    </g>
+
+    <!-- 7: finale -->
+    <g class="scene" id="sc7" data-t="Decision: Postgres" data-c="Status is Proposed. Mark each decision on the review page or comment on PR #16; once it's accepted, Phase 1 starts with the schema PR.">
+      <text x="480" y="200" text-anchor="middle" class="huge pop" style="--d:.1s">Postgres.</text>
+      <g class="pop" style="--d:.5s"><text x="200" y="350" text-anchor="middle" class="num" data-to="1">0</text><text x="200" y="392" text-anchor="middle" style="font-size:19px;fill:var(--muted)">datastore</text></g>
+      <g class="pop" style="--d:.7s"><text x="480" y="350" text-anchor="middle" class="num" data-to="9" data-suffix=" / 9">0</text><text x="480" y="392" text-anchor="middle" style="font-size:19px;fill:var(--muted)">queries under 300 ms at p95</text><text x="480" y="418" text-anchor="middle" style="font-size:15px;fill:var(--muted)">with the queue capped</text></g>
+      <g class="pop" style="--d:.9s"><text x="760" y="350" text-anchor="middle" class="num" data-to="0" data-from="3">3</text><text x="760" y="392" text-anchor="middle" style="font-size:19px;fill:var(--muted)">new services</text></g>
+    </g>
+  </svg>
+  </div>
+
+  <div class="caption" aria-live="polite">
+    <h1 id="capTitle">From a list to a graph</h1>
+    <p id="capText"></p>
+  </div>
+
+  <div class="controls">
+    <button id="prev" aria-label="Previous scene">←</button>
+    <button id="play">Pause</button>
+    <button id="next" aria-label="Next scene">→</button>
+    <div class="dots" id="dots"></div>
+  </div>
+</div>
+
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const el = (t, a = {}, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+const txt = (t, a, p) => { const e = el('text', a, p); e.textContent = t; return e; };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* scene 1 graph */
+(() => {
+  const N = {
+    b: [730, 270, 'BOOKMARK', 'pg internals', 1], b2: [730, 110, 'BOOKMARK', 'MVCC explained', 1],
+    u: [580, 175, 'URL', 'wal.dev/intro'], t: [880, 180, 'TAG', 'postgres'],
+    d: [880, 380, 'DOMAIN', 'example.org'], a: [580, 395, 'AUTHOR', 'J. Doe'],
+  };
+  const E = [['b', 'b2'], ['b', 'u'], ['b', 't'], ['b', 'd'], ['b', 'a'], ['b2', 'u']];
+  const ge = document.getElementById('g1edges'), gn = document.getElementById('g1nodes');
+  E.forEach(([s, d], i) => el('path', { class: 'edge draw', pathLength: 1, d: `M${N[s][0]} ${N[s][1]} L${N[d][0]} ${N[d][1]}`, style: `--d:${1.9 + i * .15}s` }, ge));
+  Object.values(N).forEach((n, i) => {
+    const g = el('g', { class: 'zoom', style: `--d:${1.2 + i * .12}s` }, gn);
+    const w = n[4] ? 150 : 120;
+    el('rect', { class: 'box' + (n[4] ? ' bm' : ''), x: n[0] - w / 2, y: n[1] - 26, width: w, height: 52, rx: 8 }, g);
+    txt(n[2], { x: n[0], y: n[1] - 5, 'text-anchor': 'middle', class: 'k', style: 'font-size:11px' }, g);
+    txt(n[3], { x: n[0], y: n[1] + 15, 'text-anchor': 'middle', style: 'font-size:14px' }, g);
+  });
+})();
+
+/* scene 3 chart */
+(() => {
+  const g = document.getElementById('chart');
+  const data = [['Backlinks', .1], ['Filter by tag tree', .7], ['Neighbourhood, 2 hops', 1.3], ['Related bookmarks', 1.6],
+    ['Neighbourhood, 3 hops', 18.6], ['Path, up to 4 hops', 46], ['Reading queue', 285, 21.8]];
+  const L = 300, W = 960, R = 150, lo = Math.log10(.05), hi = Math.log10(1000);
+  const x = v => L + (Math.log10(v) - lo) / (hi - lo) * (W - L - R);
+  const top = 112, step = 54;
+  [.1, 1, 10, 100, 1000].forEach(t => {
+    el('line', { x1: x(t), x2: x(t), y1: 84, y2: top + data.length * step - 14, class: 'ax' }, g);
+    txt((t < 1 ? t : t.toLocaleString()) + ' ms', { x: x(t), y: 74, 'text-anchor': 'middle', class: 'tick' }, g);
+  });
+  data.forEach(([n, v, after], i) => {
+    const cy = top + i * step + 12, d = (.2 + i * .18) + 's';
+    txt(n, { x: L - 18, y: cy + 6, 'text-anchor': 'end', class: 'name pop', style: `--d:${d}` }, g);
+    const w = x(v) - x(.05), cls = v >= 100 ? 'crit' : v >= 30 ? 'warn' : 'ok';
+    const r = el('rect', { x: x(.05), y: cy - 12, width: w, height: 24, rx: 3, class: `bar ${cls}${after ? ' q' : ''}`, style: `--d:${d}` }, g);
+    if (after) r.style.setProperty('--r', ((x(after) - x(.05)) / w).toFixed(4));
+    const vx = W - R + 18;
+    if (after) {
+      txt(`${v} ms`, { x: vx, y: cy + 6, class: 'val swapA pop', style: `--d:${d}` }, g);
+      txt(`${after} ms`, { x: vx, y: cy + 6, class: 'val swapB', style: 'fill:var(--green)!important' }, g);
+    } else txt(`${v} ms`, { x: vx, y: cy + 6, class: 'val pop', style: `--d:${d}` }, g);
+  });
+  const by = top + data.length * step - 14;
+  el('line', { x1: x(300), x2: x(300), y1: 56, y2: by, class: 'budget pop', style: '--d:1.6s' }, g);
+  txt('300 ms budget', { x: x(300), y: 46, 'text-anchor': 'middle', class: 'pop', style: '--d:1.6s;font:500 14px var(--f-mono);fill:var(--coral)' }, g);
+  const qy = top + 6 * step + 12;
+  const tag = el('g', { class: 'late', style: '--d:.2s' }, g);
+  el('rect', { x: x(1.2), y: qy + 22, width: 270, height: 34, rx: 17, fill: '#123128', stroke: 'var(--green)' }, tag);
+  txt('Cap at 30 recent reads', { x: x(1.2) + 135, y: qy + 45, 'text-anchor': 'middle', style: 'font:500 15px var(--f-body);fill:var(--green)' }, tag);
+})();
+
+/* scene 4 pipeline */
+(() => {
+  const g = document.getElementById('pipe');
+  const steps = [['POST', 'bookmark + job', 'api'], ['Fetch', 'SSRF guard'], ['Normalize', 'dedupe URLs'], ['Extract', 'title, author'], ['Resolve', 'links']];
+  const w = 140, gap = 40, y = 200, h = 84, x0 = 50;
+  const cx = i => x0 + i * (w + gap);
+  steps.forEach((s, i) => {
+    if (i) el('path', { class: 'edge draw', pathLength: 1, d: `M${cx(i) - gap + 4} ${y + h / 2} H${cx(i) - 6}`, 'marker-end': 'url(#ar)', style: `--d:${.3 + i * .2}s` }, g);
+    const gg = el('g', { class: 'pop', style: `--d:${.1 + i * .2}s` }, g);
+    el('rect', { class: 'step' + (s[2] ? ' api' : ''), x: cx(i), y, width: w, height: h, rx: 10 }, gg);
+    txt(s[0], { x: cx(i) + w / 2, y: y + 38, 'text-anchor': 'middle', style: 'font:700 20px var(--f-display)' }, gg);
+    txt(s[1], { x: cx(i) + w / 2, y: y + 62, 'text-anchor': 'middle', class: 'k', style: 'font-size:12px' }, gg);
+  });
+  const ok = el('g', { class: 'zoom', style: '--d:.6s' }, g);
+  el('rect', { x: cx(0) + 10, y: 110, width: 120, height: 48, rx: 24, class: 'ok201' }, ok);
+  txt('201', { x: cx(0) + 70, y: 142, 'text-anchor': 'middle', style: 'font:800 22px var(--f-display);fill:var(--bg)' }, ok);
+  txt('reply sent here', { x: cx(0) + 150, y: 140, class: 'pop', style: '--d:.8s;font-size:16px;fill:var(--green)' }, g);
+  el('path', { class: 'draw', pathLength: 1, d: `M${cx(0) + 70} 160 V196`, stroke: 'var(--green)', 'stroke-width': 3, style: '--d:.7s' }, g);
+  txt('BACKGROUND WORKER  ·  queue table, SKIP LOCKED', { x: cx(1), y: y + h + 36, class: 'k pop', style: '--d:1.1s' }, g);
+  el('path', { class: 'draw', pathLength: 1, d: `M${cx(1)} ${y + h + 14} H${cx(4) + w}`, stroke: 'var(--line)', 'stroke-width': 2, style: '--d:1.1s' }, g);
+  [['Topics', 'LLM'], ['Embeddings', 'pgvector']].forEach((s, i) => {
+    const gg = el('g', { class: 'pop', style: `--d:${1.4 + i * .2}s` }, g);
+    const xx = cx(2) + i * (w + gap) + 40;
+    el('rect', { class: 'step p2s', x: xx, y: 390, width: w + 20, height: 70, rx: 10 }, gg);
+    txt(s[0], { x: xx + (w + 20) / 2, y: 424, 'text-anchor': 'middle', style: 'font:700 19px var(--f-display);fill:var(--muted)' }, gg);
+    txt(s[1], { x: xx + (w + 20) / 2, y: 446, 'text-anchor': 'middle', class: 'k', style: 'font-size:12px' }, gg);
+  });
+  txt('PHASE 2', { x: cx(2) - 30, y: 430, 'text-anchor': 'end', class: 'k pop', style: '--d:1.4s' }, g);
+  const tok = el('circle', { r: 9, class: 'token', cx: 0, cy: 0, opacity: 0 }, g);
+  const mot = el('animateMotion', { dur: '3.2s', begin: 'indefinite', fill: 'freeze', path: `M${cx(0) + w / 2} ${y + h / 2} H${cx(4) + w / 2}` }, tok);
+  window.__runToken = () => { if (reduce) return; tok.setAttribute('opacity', 1); try { mot.beginElement(); } catch (e) {} };
+})();
+
+/* player */
+const scenes = [...document.querySelectorAll('.scene')];
+const DUR = [7000, 7500, 8000, 6500, 7500, 6500, 7000];
+const P2 = [null, 3600, 4400, null, 3200, null, null];
+const dots = document.getElementById('dots');
+scenes.forEach((_, i) => {
+  const b = document.createElement('button'); b.setAttribute('aria-label', `Scene ${i + 1}`); b.innerHTML = '<i></i>';
+  b.onclick = () => go(i); dots.appendChild(b);
+});
+let cur = -1, playing = !reduce, timers = [], fillAnim;
+const clear = () => { timers.forEach(clearTimeout); timers = []; fillAnim && fillAnim.cancel(); };
+function countUp() {
+  document.querySelectorAll('#sc7 .num').forEach(n => {
+    const to = +n.dataset.to, from = +(n.dataset.from || 0), suf = n.dataset.suffix || '';
+    if (reduce) { n.textContent = to + suf; return; }
+    const t0 = performance.now() + 600, dur = 900;
+    const tick = now => { const k = Math.min(1, Math.max(0, (now - t0) / dur)); n.textContent = Math.round(from + (to - from) * k) + suf; if (k < 1) requestAnimationFrame(tick); };
+    n.textContent = from + suf; requestAnimationFrame(tick);
+  });
+}
+function go(i) {
+  clear();
+  [...dots.children].forEach(d => d.firstChild.style.transform = '');
+  i = (i + scenes.length) % scenes.length;
+  scenes.forEach((s, j) => { s.classList.toggle('on', j === i); s.classList.remove('p2'); });
+  cur = i;
+  const s = scenes[i];
+  document.getElementById('capTitle').textContent = s.dataset.t;
+  document.getElementById('capText').textContent = s.dataset.c;
+  document.getElementById('count').textContent = `${i + 1} / ${scenes.length}`;
+  [...dots.children].forEach((d, j) => d.classList.toggle('done', j < i));
+  if (P2[i] != null) timers.push(setTimeout(() => s.classList.add('p2'), reduce ? 0 : P2[i]));
+  if (i === 3) timers.push(setTimeout(window.__runToken, 1200));
+  if (i === 6) countUp();
+  const bar = dots.children[i].firstChild;
+  if (playing) {
+    fillAnim = bar.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: DUR[i], fill: 'forwards' });
+    timers.push(setTimeout(() => go(i + 1), DUR[i]));
+  } else bar.style.transform = 'scaleX(1)';
+}
+const playBtn = document.getElementById('play');
+const setPlay = p => { playing = p; playBtn.textContent = p ? 'Pause' : 'Play'; go(cur); };
+playBtn.onclick = () => setPlay(!playing);
+document.getElementById('prev').onclick = () => go(cur - 1);
+document.getElementById('next').onclick = () => go(cur + 1);
+document.addEventListener('keydown', e => { if (e.key === 'ArrowRight') go(cur + 1); else if (e.key === 'ArrowLeft') go(cur - 1); });
+playBtn.textContent = playing ? 'Pause' : 'Play';
+go(0);
+</script>
+
+</body>
+</html>
