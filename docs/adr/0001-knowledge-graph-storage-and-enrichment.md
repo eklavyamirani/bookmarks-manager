@@ -55,8 +55,38 @@ The question that decides this: is plain SQL fast enough, or does it need a grap
 What this shows:
 
 1. Every P1 query is one to two orders of magnitude under the 300 ms budget, except the queue when it is seeded from every read in the window.
-2. The queue's cost grows with the number of seeds. 486 reads in 7 days is an artifact of the synthetic data (40% of bookmarks read within 60 days); realistic personal numbers are far lower. Still, **cap the seeds** (most recent N, weighted by recency) instead of relying on the window alone.
+2. The queue's cost is set by popular tags more than by the number of seeds. See [Reading queue: where the time goes](#reading-queue-where-the-time-goes).
 3. Path search finds technically correct but useless paths through hubs (`bookmark → popular tag → bookmark`). FR-C3 needs hub penalties, or a rule against traversing high-degree nodes. That applies to any engine; Cypher's `shortestPath` has the same problem.
+
+### Reading queue: where the time goes
+
+The queue (FR-D1) ranks unread bookmarks by what they share with recent reads. It does this in two hops: from each recent read (a "seed") to its tags, topics and author, then to every other bookmark attached to those. Each pairing becomes one row to score, so:
+
+> rows to score ≈ seeds × tags per seed × bookmarks per tag
+
+Measured fan-out with a 7-day window:
+
+| Step | All 486 seeds | 30 seeds |
+|---|---:|---:|
+| Seeds | 486 | 30 |
+| Hop 1: their tags, topics, authors | 3,134 | 195 |
+| Hop 2: rows to score | 687,956 | 47,765 |
+| Distinct bookmarks scored | 10,000 | 8,355 |
+
+One tag with 2,230 bookmarks produced 250k of the 688k rows, and the largest topic another 145k. A tag on a fifth of the collection says almost nothing about relatedness, so these rows cost the most and carry the least signal.
+
+Variants, from a separate run (timings vary about 10–40% between runs on this VM):
+
+| Variant | p50 ms | p95 ms |
+|---|---:|---:|
+| A. All 486 seeds | 324 | 360 |
+| B. 30 most recent seeds | 32 | 43 |
+| C. All seeds, skip tags/topics with more than 200 bookmarks | 118 | 121 |
+| D. 30 seeds, skip those, weight shared tags by 1 / ln(1 + tag size) | 9 | 10 |
+
+- **Speed:** B, C and D all fit the budget.
+- **Ranking:** A and B share 10 of their top 20. B and D share none, so popular tags were deciding B's ranking. Synthetic data can't say which ranking is better; that needs real bookmarks.
+- **Rule for FR-D1:** cap seeds **and** down-weight popular tags (variant D). It needs a per-tag bookmark count kept up to date. The queue PR (Phase 1, item 7) checks ranking quality against real data before choosing the cutoff and weighting.
 
 Limitations: synthetic data, Postgres 16 rather than 18, x86 rather than arm64. A Raspberry Pi-class arm64 host will be slower by some constant factor, which the headroom above covers. AGE and Neo4j were not benchmarked; at this scale they don't need to be, because C already passes.
 
@@ -146,6 +176,7 @@ BackgroundService ◀── LISTEN + poll (SELECT … FOR UPDATE SKIP LOCKED) �
 
 - Every list or graph endpoint takes `limit` (default 50, max 200) and a cursor. Nothing returns the whole collection.
 - Neighbourhood: `depth` ≤ 3 and a per-hop fanout cap, ordered by edge weight. Hub nodes are capped, never fully expanded.
+- Reading queue: at most 30 seeds, and shared tags/topics weighted by 1 / ln(1 + their bookmark count), skipping those above a cutoff (200 in the benchmark).
 - Search (FR-C5): Postgres full-text search over title, URL, tags, domain, author and notes, plus `pg_trgm` for substring and fuzzy matches. This replaces today's in-memory filter in `BookmarksTool.SearchBookmarks`.
 
 ## Consequences
@@ -165,5 +196,5 @@ BackgroundService ◀── LISTEN + poll (SELECT … FOR UPDATE SKIP LOCKED) �
 4. Enrichment queue, fetcher, HTML extraction and link resolution (FR-A3, FR-A4, NFR-2).
 5. Server-side search (FR-C5).
 6. Related, backlinks and neighbourhood endpoints with bounds (FR-C1, FR-C2, FR-F1, FR-F6).
-7. Finish-the-thread queue (FR-D1).
+7. Finish-the-thread queue (FR-D1), with the seed cap and popular-tag weighting; check its ranking against real bookmarks.
 8. Frontend: tags, detail view with related and backlinks, queue view.

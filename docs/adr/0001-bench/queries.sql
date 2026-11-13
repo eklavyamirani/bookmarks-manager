@@ -74,6 +74,33 @@ RETURNS TABLE(id bigint, score real) LANGUAGE sql STABLE AS $$
   GROUP BY s.cand ORDER BY 2 DESC LIMIT k
 $$;
 
+-- FR-D1 variant: cap seeds AND skip/down-weight popular tags and topics.
+-- deg would be a maintained count in the real schema; here it is derived once.
+DROP TABLE IF EXISTS deg;
+CREATE TABLE deg AS SELECT dst AS id, type, count(*) AS n FROM edge GROUP BY 1, 2;
+ALTER TABLE deg ADD PRIMARY KEY (id, type);
+ANALYZE deg;
+
+CREATE OR REPLACE FUNCTION thread_queue_hubcap(window_days int, max_seeds int, hub_max int, k int DEFAULT 20)
+RETURNS TABLE(id bigint, score real) LANGUAGE sql STABLE AS $$
+  WITH recent AS (
+    SELECT id FROM bookmark WHERE read_at > now() - make_interval(days => window_days)
+    ORDER BY read_at DESC LIMIT max_seeds),
+  s AS (
+    SELECT e2.src AS cand,
+           (CASE e1.type WHEN 'about' THEN 2 * e1.weight * e2.weight ELSE 1 END) / ln(1 + d.n) AS w
+    FROM recent r
+    JOIN edge e1 ON e1.src = r.id AND e1.type IN ('tagged','about','authored_by')
+    JOIN deg d ON d.id = e1.dst AND d.type = e1.type AND d.n <= hub_max
+    JOIN edge e2 ON e2.dst = e1.dst AND e2.type = e1.type AND e2.src <> r.id
+    UNION ALL
+    SELECT e.dst, 3 FROM recent r JOIN edge e ON e.src = r.id AND e.type = 'links_to'
+    UNION ALL
+    SELECT e.src, 3 FROM recent r JOIN edge e ON e.dst = r.id AND e.type = 'links_to')
+  SELECT s.cand, sum(w)::real FROM s JOIN bookmark b ON b.id = s.cand AND b.read_at IS NULL
+  GROUP BY s.cand ORDER BY 2 DESC LIMIT k
+$$;
+
 -- FR-C3 path (P2): BFS in plpgsql with a visited set, max depth
 CREATE OR REPLACE FUNCTION path(a bigint, b bigint, max_depth int DEFAULT 4)
 RETURNS bigint[] LANGUAGE plpgsql AS $$

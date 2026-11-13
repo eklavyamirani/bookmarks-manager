@@ -222,11 +222,11 @@ svg .picked{filter:drop-shadow(0 0 2px var(--amber)) drop-shadow(0 0 9px var(--a
         <text x="86" y="146" class="big">Postgres 18 data path moved</text>
         <text x="86" y="186" style="font:500 15px var(--f-mono);fill:var(--coral)">- /var/lib/postgresql/data</text>
         <text x="86" y="214" style="font:500 15px var(--f-mono);fill:var(--green)">+ /var/lib/postgresql</text></g>
-      <g class="zoom" style="--d:.35s" data-ref="queue-cap" data-label="flag: cap the queue's seeds"><rect class="flag" x="490" y="70" width="410" height="185" rx="12"/>
+      <g class="zoom" style="--d:.35s" data-ref="queue-cap" data-label="flag: queue must discount popular tags"><rect class="flag" x="490" y="70" width="410" height="185" rx="12"/>
         <text x="516" y="108" class="sev" style="fill:var(--amber)">QUERY RULE</text>
-        <text x="516" y="146" class="big">Cap the queue's seeds</text>
-        <text x="516" y="186" style="font-size:17px;fill:var(--muted)">486 seeds: 285 ms</text>
-        <text x="516" y="214" style="font-size:17px;fill:var(--muted)">30 seeds: 22 ms</text></g>
+        <text x="516" y="146" class="big">Queue: discount popular tags</text>
+        <text x="516" y="186" style="font-size:17px;fill:var(--muted)">All reads, every tag: 324 ms</text>
+        <text x="516" y="214" style="font-size:17px;fill:var(--muted)">30 reads, popular discounted: 9 ms</text></g>
       <g class="zoom" style="--d:.6s" data-ref="path-hubs" data-label="flag: hubs in path search"><rect class="flag" x="60" y="275" width="410" height="185" rx="12"/>
         <text x="86" y="313" class="sev" style="fill:var(--amber)">QUERY RULE</text>
         <text x="86" y="351" class="big">Penalize hubs in path search</text>
@@ -318,9 +318,15 @@ JOIN bookmark b ON b.id = e.src
 WHERE e.dst = 42 AND e.type = 'links_to';</pre>
 <p>Same idea. The second returns normal rows that EF Core and Npgsql already understand. The first returns <code>agtype</code>, which .NET needs a community plugin to unpack.</p>` },
  { t: 'Is plain SQL fast enough?',
-   c: 'p50 latency at the 10k-bookmark target, with 226k edges. Only the reading queue reaches the 300 ms budget, until its seeds are capped.',
-   why: `<p>NFR-4 asks for under 300 ms at 10k bookmarks. These are typical (p50) times on synthetic data shaped like real use, including "hub" tags with over 2,000 bookmarks.</p><p>The scale is logarithmic because results span 0.1 ms to 300 ms. On a linear scale, everything except the queue would be a sliver.</p>`,
-   ex: `<p>The reading queue scores your unread bookmarks by how close they are to what you read recently. The synthetic data had 486 reads in 7 days, so the query started from 486 bookmarks and took 285 ms.</p><p>Starting from your 30 most recent reads instead takes 22 ms. It also keeps the queue focused on what you're reading right now.</p>` },
+   c: 'p50 latency at the 10k-bookmark target, with 226k edges. Only the reading queue goes over the 300 ms budget, until it stops spending its time on popular tags.',
+   why: `<p>NFR-4 asks for under 300 ms at 10k bookmarks. These are typical (p50) times on synthetic data shaped like real use, including "hub" tags with over 2,000 bookmarks.</p><p>The scale is logarithmic because results span 0.1 ms to 300 ms. On a linear scale, everything except the queue would be a sliver.</p><p>The queue row comes from a separate run that compared queue variants; timings vary 10–40% between runs.</p>`,
+   ex: `<p><b>What the queue does:</b> for each recent read, it finds its tags, then every other bookmark with those tags, and gives each a point. <i>Why:</i> sharing tags with what you just read is the signal for "next in this thread".</p>
+<p><b>Where the time goes:</b> rows to score ≈ reads × tags per read × bookmarks per tag. 486 reads made 688k rows, and one tag on 2,230 bookmarks made 250k of them. <i>Why that's waste:</i> a tag on a fifth of your bookmarks says almost nothing about relatedness.</p>
+<pre>A  all 486 reads              324 ms
+B  30 most recent reads        32 ms
+D  30 reads + skip/discount
+   popular tags                 9 ms</pre>
+<p><b>Still open:</b> B and D pick completely different top 20s. Which ranking is better needs your real bookmarks. The queue PR checks that.</p>` },
  { t: 'Saving stays instant',
    c: 'The API replies right after the insert. A background worker fetches and parses the page from a queue table in Postgres.',
    why: `<p>Fetching a page can take seconds or fail outright. If saving waited for it, adding a bookmark from your phone or from an agent would hang.</p><p>So the API stores the bookmark and a job in one transaction and replies. A worker does the slow part, and the bookmark shows its enrichment status meanwhile (NFR-2).</p>`,
@@ -382,7 +388,7 @@ to store database data in a …</pre>
 (() => {
   const g = document.getElementById('chart');
   const data = [['backlinks', 'Backlinks', .1], ['tag-filter', 'Filter by tag tree', .7], ['hop2', 'Neighbourhood, 2 hops', 1.3],
-    ['related', 'Related bookmarks', 1.6], ['hop3', 'Neighbourhood, 3 hops', 18.6], ['path', 'Path, up to 4 hops', 46], ['queue', 'Reading queue', 285, 21.8]];
+    ['related', 'Related bookmarks', 1.6], ['hop3', 'Neighbourhood, 3 hops', 18.6], ['path', 'Path, up to 4 hops', 46], ['queue', 'Reading queue', 324, 9.2]];
   const L = 300, W = 960, R = 150, lo = Math.log10(.05), hi = Math.log10(1000);
   const x = v => L + (Math.log10(v) - lo) / (hi - lo) * (W - L - R);
   const top = 112, step = 54, by = top + data.length * step - 14;
@@ -403,8 +409,8 @@ to store database data in a …</pre>
       txt(`${v} ms`, { x: vx, y: cy + 6, class: 'val swapA pop', style: `--d:${d}` }, row);
       txt(`${after} ms`, { x: vx, y: cy + 6, class: 'val swapB', style: 'fill:var(--green)!important' }, row);
       const tag = el('g', { class: 'late', style: '--d:.2s' }, row);
-      el('rect', { x: x(1.2), y: cy + 22, width: 270, height: 34, rx: 17, fill: '#123128', stroke: 'var(--green)' }, tag);
-      txt('Cap at 30 recent reads', { x: x(1.2) + 135, y: cy + 45, 'text-anchor': 'middle', style: 'font:500 15px var(--f-body);fill:var(--green)' }, tag);
+      el('rect', { x: x(1.2) - 30, y: cy + 22, width: 330, height: 34, rx: 17, fill: '#123128', stroke: 'var(--green)' }, tag);
+      txt('30 reads, popular tags discounted', { x: x(1.2) + 135, y: cy + 45, 'text-anchor': 'middle', style: 'font:500 15px var(--f-body);fill:var(--green)' }, tag);
     } else txt(`${v} ms`, { x: vx, y: cy + 6, class: 'val pop', style: `--d:${d}` }, row);
   });
   const bg = el('g', { 'data-ref': 'budget', 'data-label': 'the 300 ms budget line' }, g);

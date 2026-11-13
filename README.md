@@ -49,6 +49,10 @@
 27. So option A creates a new repo for keeping these artifacts?
 28. Very smart. Yes, let's do this.
 29. excellent. Now, I need a way to reference parts of this animation to ask questions to you. Also, the "why" and "examples" are needed for comprehension
+30. (storybook ref S2) I dont understand the syntax for option A
+31. no. next. (storybook ref S3.queue) I dont quite understand how to evaluate the cost between these options and what is the work to be done that costs this time
+32. The why part is missing from the sub-parts of this explanation which makes comprehension difficult.
+33. Yes. Also, based on my questions, identify the tone and level of detailed explanation to add to the PR animation storybook. The storybook will become a skill that evolves as we review the PR and will be used across repositories
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
