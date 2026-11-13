@@ -33,7 +33,7 @@ When the reviewer asks about a part of the storybook:
 4. **Present options as a table.** Columns: the result, *why it works*, and *the trade-off*.
 5. **Separate how to judge the options.** What's measured (speed), what's unknown (for example ranking quality on synthetic data), and what it costs to build.
 6. **Recommend, with why, then offer the concrete change** to the ADR or storybook. Don't apply it until they agree.
-7. **End with an insight for the storybook**, scoped to this scene or the whole storybook: what the question shows the storybook should explain better.
+7. **End with an insight for the storybook**, but only when you're at least moderately confident of it. Scope it to this scene or the whole storybook: what the question shows the storybook should explain better. Skip it otherwise.
 
 ## Format
 
@@ -68,3 +68,4 @@ Newest last. Each entry has the reviewer's words and the rule it produced.
 | 10 | "I dont quite understand how to evaluate the cost between these options and what is the work to be done that costs this time" | Mechanism, cost model, options table and evaluation criteria in that order; ground numbers in the work done |
 | 11 | "The why part is missing from the sub-parts of this explanation" | A why on every sub-part: steps, numbers, options, recommendations |
 | 12 | "As I ask questions, use them as an opportunity to consider strong candidates to tweak the storybook and suggest the insight to update either the current slide or the entire storybook." | Every answer ends with one or two storybook insights, scoped to this scene or the whole storybook; suggest only |
+| 13 | "Each answer does not need to force the insight. Only consider insights with medium to high level of confidence." | Insights are optional; offer one only at medium-high confidence |

@@ -52,7 +52,7 @@ https://…/0001-story.html#s3-queue
    - An options table with why each option works and its trade-off.
    - What's measured versus what's open.
    - A recommendation with its why.
-4. Finish with an **Insight for the storybook**. Every question shows where the storybook failed to explain something, so name the strongest candidate fix and scope it:
+4. When you're at least moderately confident of one, finish with an **Insight for the storybook**. A question often shows where the storybook failed to explain something. Don't force one onto every answer; a weak suggestion costs the reviewer attention. If you have one, name the strongest candidate fix and scope it:
    - **This scene:** a change to the scene the question referenced, for example a missing why, a better example, or an animation step that shows the mechanism.
    - **Whole storybook:** a pattern to apply to every scene, for example "Example cards use what → why pairs", or "evidence scenes show what work each number measures".
    Give one or two strong candidates, not a list. Say which scope and why. Don't apply anything until the reviewer says yes; a "no" means drop it.

@@ -54,6 +54,7 @@
 32. The why part is missing from the sub-parts of this explanation which makes comprehension difficult.
 33. Yes. Also, based on my questions, identify the tone and level of detailed explanation to add to the PR animation storybook. The storybook will become a skill that evolves as we review the PR and will be used across repositories
 34. No need to test yet. I will move the skill out in a different session. As I ask questions, use them as an opportunity to consider strong candidates to tweak the storybook and suggest the insight to update either the current slide or the entire storybook.
+35. Each answer does not need to force the insight. Inly consider insights with medium to high level of confidence. And yes, do both.
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
