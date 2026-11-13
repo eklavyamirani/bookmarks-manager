@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Knowledge Graph ADR Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column of review "panels"; graph-paper ground hints at the subject. */
+:root{
+  --bg:#f3f5f6; --panel:#ffffff; --fg:#17202b; --muted:#5b6876; --line:#d8dee3; --grid:#e6ebee;
+  --accent:#0f6f86; --accent-soft:#dcedf1;
+  --ok:#2e8456; --ok-soft:#e1f1e8; --warn:#b26a00; --warn-soft:#f8ecd6; --crit:#bb3a28; --crit-soft:#f7e1dd;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11161c; --panel:#18202a; --fg:#e4e9ee; --muted:#93a1ae; --line:#2b3642; --grid:#1a222b;
+  --accent:#4fb3c9; --accent-soft:#16323a;
+  --ok:#5cc28a; --ok-soft:#173326; --warn:#e2a64a; --warn-soft:#3a2c14; --crit:#ef7a66; --crit-soft:#3c1d18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161c; --panel:#18202a; --fg:#e4e9ee; --muted:#93a1ae; --line:#2b3642; --grid:#1a222b;
+  --accent:#4fb3c9; --accent-soft:#16323a;
+  --ok:#5cc28a; --ok-soft:#173326; --warn:#e2a64a; --warn-soft:#3a2c14; --crit:#ef7a66; --crit-soft:#3c1d18; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--f-body);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:980px;margin:0 auto;display:grid;gap:22px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,5vw,42px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:22px;font-weight:700}
+h3{font-size:16px;font-weight:600;font-family:var(--f-body)}
+p{margin:0;max-width:68ch}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+a{color:var(--accent)}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px;display:grid;gap:16px;min-width:0}
+.panel>header{display:grid;gap:6px}
+.muted{color:var(--muted)}
+.scroll{overflow-x:auto;min-width:0}
+
+/* hero */
+.hero{display:grid;gap:14px;padding-block:6px 4px}
+.hero .lede{font-size:17px}
+.stamp{display:inline-flex;align-items:center;gap:8px;font:500 12px/1 var(--f-mono);padding:6px 10px;border:1.5px solid var(--accent);color:var(--accent);border-radius:4px;letter-spacing:.06em;text-transform:uppercase;width:max-content}
+.stats{display:flex;flex-wrap:wrap;gap:10px 28px}
+.stat b{display:block;font:700 26px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+nav.jump{display:flex;flex-wrap:wrap;gap:8px}
+nav.jump a{font:500 13px/1 var(--f-body);text-decoration:none;color:var(--fg);border:1px solid var(--line);background:var(--panel);padding:8px 12px;border-radius:999px}
+nav.jump a:hover,nav.jump a:focus-visible{border-color:var(--accent);color:var(--accent);outline:none}
+
+/* options matrix */
+table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:640px;font-size:14px}
+.matrix th,.matrix td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.matrix thead th{font:600 14px/1.3 var(--f-body);border-bottom:2px solid var(--line)}
+.matrix thead th small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.matrix tbody th{font-weight:500;color:var(--muted);width:150px}
+.matrix .pick{background:var(--accent-soft)}
+.matrix thead .pick{border-top:3px solid var(--accent);border-radius:8px 8px 0 0}
+.rate{display:flex;gap:8px;align-items:flex-start}
+.dot{flex:none;width:11px;height:11px;border-radius:50%;margin-top:5px;border:2px solid currentColor}
+.good .dot{background:currentColor;color:var(--ok)}
+.meh .dot{background:linear-gradient(90deg,currentColor 50%,transparent 50%);color:var(--warn)}
+.bad .dot{color:var(--crit)}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--muted)}
+.legend .rate{align-items:center}.legend .dot{margin-top:0}
+
+/* chart */
+svg text{fill:var(--fg);font-family:var(--f-body)}
+.ax{stroke:var(--line)}
+.tick text{fill:var(--muted);font:11px var(--f-mono)}
+.budget{stroke:var(--crit);stroke-width:1.5;stroke-dasharray:5 4}
+.bar-ok{fill:var(--ok)}.bar-warn{fill:var(--warn)}.bar-crit{fill:var(--crit)}
+.whisk{stroke:var(--fg);stroke-width:1.5}
+.val{font:11px var(--f-mono);fill:var(--muted)}
+.fr{font:10px var(--f-mono);fill:var(--muted)}
+.row-hit:hover rect.bg,.row-hit:focus rect.bg{fill:var(--accent-soft)}
+rect.bg{fill:transparent}
+
+/* schema graph */
+.graph-wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:760px){.graph-wrap{grid-template-columns:1fr}}
+.node rect{fill:var(--panel);stroke:var(--line);stroke-width:1.5;transition:fill .5s,stroke .5s}
+.node.bm rect{stroke:var(--accent);stroke-width:2}
+.node.sel rect{fill:var(--accent-soft)}
+.node{cursor:pointer}
+.node:focus{outline:none}.node:focus-visible rect{stroke:var(--accent);stroke-width:3}
+.node .k{font:500 10px var(--f-mono);fill:var(--muted);letter-spacing:.05em}
+.node .n{font:600 13px var(--f-body)}
+.node.promoting rect{fill:var(--ok-soft);stroke:var(--ok);stroke-width:2.5}
+.edge{stroke:var(--muted);stroke-width:1.3;fill:none}
+.edge.hot{stroke:var(--ok);stroke-width:2.2}
+.elabel{font:10.5px var(--f-mono);fill:var(--muted)}
+.arrow{fill:var(--muted)}
+.detail{border:1px solid var(--line);border-radius:8px;padding:14px;display:grid;gap:10px;min-width:0}
+.detail table{border-collapse:collapse;font:12.5px/1.4 var(--f-mono);width:100%}
+.detail td{padding:3px 0;border-bottom:1px dashed var(--line);vertical-align:top}
+.detail td:first-child{padding-right:10px;white-space:nowrap}
+.detail td:last-child{color:var(--muted);text-align:right}
+button{font:500 14px/1 var(--f-body);cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:9px 14px}
+button:hover{border-color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.callout{font-size:13.5px;padding:10px 12px;border-radius:6px;background:var(--ok-soft);color:var(--fg)}
+
+/* pipeline */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.step{font:500 13px/1.25 var(--f-body);padding:9px 12px;border-radius:6px;border:1.5px solid var(--line);background:var(--panel)}
+.step small{display:block;font:11px var(--f-mono);color:var(--muted);margin-top:2px}
+.step.api{border-color:var(--accent)}
+.step.p2{border-style:dashed;color:var(--muted)}
+.arr{color:var(--muted);font-family:var(--f-mono)}
+.marker{font:600 12px/1 var(--f-mono);color:var(--ok);background:var(--ok-soft);padding:6px 8px;border-radius:4px}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.note{font-size:13.5px;display:grid;gap:4px;min-width:0}
+.note b{font-weight:600}
+
+/* flags */
+.flags{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:640px){.flags{grid-template-columns:1fr}}
+.flag{border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:6px;padding:14px;display:grid;gap:8px;align-content:start;min-width:0}
+.flag.crit{border-left-color:var(--crit)}
+.sev{font:600 11px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--warn)}
+.flag.crit .sev{color:var(--crit)}
+.flag p{font-size:13.5px}
+.diff{font:12px/1.5 var(--f-mono);background:var(--bg);border-radius:4px;padding:8px 10px;overflow-x:auto;white-space:pre;margin:0}
+.diff .m{color:var(--crit)}.diff .p{color:var(--ok)}
+
+/* verdicts */
+.tally{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 12px/1 var(--f-mono);padding:6px 9px;border-radius:999px;border:1px solid var(--line)}
+.chip.a{color:var(--ok);border-color:var(--ok)}.chip.q{color:var(--warn);border-color:var(--warn)}.chip.r{color:var(--crit);border-color:var(--crit)}
+ol.decisions{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.dec{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;padding:14px 0;border-bottom:1px solid var(--line);align-items:center}
+.dec:last-child{border-bottom:0}
+.dec .t{font-weight:500}
+.dec .s{font-size:13px;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:8px 11px;font-size:13px;background:var(--panel)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"].a{background:var(--ok-soft);color:var(--ok)}
+.seg button[aria-pressed="true"].q{background:var(--warn-soft);color:var(--warn)}
+.seg button[aria-pressed="true"].r{background:var(--crit-soft);color:var(--crit)}
+.dec textarea{grid-column:1/-1;font:13.5px/1.4 var(--f-body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;resize:vertical;min-height:38px;width:100%}
+.dec textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+@media (max-width:560px){.dec{grid-template-columns:1fr}}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+#out{width:100%;min-height:180px;font:12.5px/1.5 var(--f-mono);background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:10px}
+.status{font-size:13px;color:var(--ok)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<section class="hero">
+  <span class="stamp">ADR 0001 · Proposed · PR #16</span>
+  <h1>Keep the knowledge graph inside Postgres</h1>
+  <p class="lede">Issue #15 asks whether bookmarks should move to Apache AGE or a separate Neo4j/Memgraph store. The proposal: neither. Use plain tables with an edge table, recursive SQL, and pgvector later. The benchmark below shows plain SQL is fast enough at the 10k-bookmark target.</p>
+  <div class="stats">
+    <div class="stat"><b>10k</b><span>bookmarks (NFR-4 target)</span></div>
+    <div class="stat"><b>226k</b><span>edges, with hubs up to 2.2k</span></div>
+    <div class="stat"><b>8 of 9</b><span>queries under 300 ms at p95</span></div>
+    <div class="stat"><b>1</b><span>datastore, same as today</span></div>
+  </div>
+  <nav class="jump" aria-label="Sections">
+    <a href="#options">Options</a><a href="#bench">Benchmark</a><a href="#schema">Schema</a><a href="#pipeline">Save flow</a><a href="#flags">Flags</a><a href="#verdict">Your verdict</a>
+  </nav>
+  <p class="muted" style="font-size:13px">Full text: <a href="https://github.com/eklavyamirani/bookmarks-manager/blob/master/docs/adr/0001-knowledge-graph-storage-and-enrichment.md">ADR 0001</a> · <a href="https://github.com/eklavyamirani/bookmarks-manager/pull/16" target="_blank" rel="noopener">PR #16</a> · <a href="0001-story.html">Animated walkthrough</a></p>
+</section>
+
+<section class="panel" id="options">
+  <header><span class="eyebrow">The choice</span><h2>Three ways to store the graph</h2>
+    <p class="muted">Facts checked against upstream repos, Docker Hub and NuGet on 2026-11-13.</p></header>
+  <div class="scroll"><table class="matrix" id="matrix"></table></div>
+  <div class="legend">
+    <span class="rate good"><i class="dot"></i>works well here</span>
+    <span class="rate meh"><i class="dot"></i>workable, with a cost</span>
+    <span class="rate bad"><i class="dot"></i>a real problem</span>
+  </div>
+</section>
+
+<section class="panel" id="bench">
+  <header><span class="eyebrow">The evidence</span><h2>Query latency against the 300 ms budget</h2>
+    <p class="muted">Bar shows p50, the whisker extends to p95. Log scale. Postgres 16, x86 VM, synthetic data, warm cache.</p></header>
+  <div class="scroll"><svg id="chart" viewBox="0 0 760 380" style="width:100%;min-width:600px;display:block" role="img" aria-label="Benchmark latency chart"></svg></div>
+  <p id="chartNote" class="muted" style="font-size:13.5px">Point at or tap a row for details.</p>
+</section>
+
+<section class="panel" id="schema">
+  <header><span class="eyebrow">The shape</span><h2>Phase 1 graph schema</h2>
+    <p class="muted">Every box is an <code>entity</code> row; every arrow is an <code>edge</code> row. Click a box to see its table.</p></header>
+  <div class="graph-wrap">
+    <div class="scroll"><svg id="graph" viewBox="0 0 680 400" style="width:100%;min-width:480px;display:block" role="img" aria-label="Schema graph"></svg></div>
+    <div class="detail" id="detail" aria-live="polite"></div>
+  </div>
+  <div class="actions">
+    <button id="promote" class="primary">Save the linked page as a bookmark</button>
+    <span class="muted" style="font-size:13.5px">Shows why everything shares one id space (FR-A4).</span>
+  </div>
+  <div class="callout" id="promoteNote" hidden></div>
+</section>
+
+<section class="panel" id="pipeline">
+  <header><span class="eyebrow">The save flow</span><h2>Saving is instant, enrichment runs after</h2></header>
+  <div class="pipe" id="pipe"></div>
+  <div class="notes">
+    <div class="note"><b>Queue</b><span>A Postgres table with <code>FOR UPDATE SKIP LOCKED</code>, run by a background worker in the API process. No Redis or RabbitMQ.</span></div>
+    <div class="note"><b>Failure</b><span>A failed fetch leaves the bookmark usable with status <code>failed</code>. Re-running enrichment means queueing the job again.</span></div>
+    <div class="note"><b>SSRF guard</b><span>The fetcher refuses private, loopback and link-local addresses, including after redirects, because MCP clients can add any URL.</span></div>
+    <div class="note"><b>No LLM in P1</b><span>Topics and embeddings are P2, behind an OpenAI-compatible endpoint. The provider is picked in ADR 0002.</span></div>
+  </div>
+</section>
+
+<section class="panel" id="flags">
+  <header><span class="eyebrow">Found along the way</span><h2>Things that need action</h2></header>
+  <div class="flags">
+    <article class="flag crit"><span class="sev">Breaks on upgrade</span><h3>Postgres 18 moved its data directory</h3>
+      <p>Compose still uses <code>18beta1</code>. On 18 GA images the data lives in <code>/var/lib/postgresql/18/docker</code>, so the current mount misses it.</p>
+      <pre class="diff"><span class="m">- postgres-data:/var/lib/postgresql/data</span>
+<span class="p">+ postgres-data:/var/lib/postgresql</span></pre></article>
+    <article class="flag"><span class="sev">Design rule</span><h3>Reading queue must cap its seeds</h3>
+      <p>Seeding from all 486 reads in 7 days: 285 ms p50. Seeding from the 30 most recent: 22 ms. Cap it and weight by recency.</p></article>
+    <article class="flag"><span class="sev">Design rule</span><h3>Path search detours through hubs</h3>
+      <p>Bookmark 42 to bookmark 2599 came back as <code>42 → tag 20001 → 2599</code>: correct, but useless. FR-C3 needs a penalty for highly connected nodes.</p></article>
+    <article class="flag"><span class="sev">Breaks NFR-3</span><h3>Devcontainer doesn't match the app</h3>
+      <p>The base image ships .NET 8 but the backend targets <code>net9.0</code>. The nvim download is hard-coded to arm64, so the build fails on amd64.</p></article>
+  </div>
+</section>
+
+<section class="panel" id="verdict">
+  <header><span class="eyebrow">Your call</span><h2>Mark each decision</h2>
+    <p class="muted">Your marks are kept in this browser only. When you're done, copy the review and paste it as a comment on PR #16.</p></header>
+  <div class="tally" id="tally"></div>
+  <ol class="decisions" id="decisions"></ol>
+  <div class="actions">
+    <button class="primary" id="copy">Copy review for PR #16</button>
+    <button id="reset">Clear marks</button>
+    <span class="status" id="copyStatus" role="status"></span>
+  </div>
+  <textarea id="out" readonly hidden aria-label="Review text"></textarea>
+</section>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+
+/* ---------- options matrix ---------- */
+const cols = [
+  ['A', 'Apache AGE', 'Cypher inside Postgres'],
+  ['B', 'Neo4j / Memgraph', 'Separate graph database'],
+  ['C', 'Relational graph', 'Edge table + recursive SQL', true],
+];
+const rows = [
+  ['Datastores', ['good', '1'], ['bad', '2, plus syncing between them'], ['good', '1']],
+  ['Query language', ['meh', 'Cypher wrapped in SQL, returns agtype'], ['good', 'Cypher'], ['meh', 'Recursive SQL']],
+  ['.NET support', ['bad', 'Community plugins only, no EF Core'], ['good', 'Official driver'], ['good', 'EF Core + Npgsql']],
+  ['Graph algorithms', ['bad', 'None built in'], ['good', 'Built in (GDS, MAGE)'], ['meh', 'In-process; milliseconds at 10k']],
+  ['Vectors (FR-A6)', ['bad', 'Needs a custom image with pgvector'], ['meh', 'Separate vector store'], ['good', 'Official pgvector:pg18 image']],
+  ['amd64 + arm64', ['good', 'Official AGE images'], ['meh', 'Not checked'], ['good', 'Yes']],
+  ['License', ['good', 'Apache 2.0'], ['meh', 'GPLv3 (Neo4j) / BSL (Memgraph)'], ['good', 'PostgreSQL']],
+];
+const m = $('#matrix');
+m.innerHTML = '<thead><tr><th></th>' + cols.map(c => `<th class="${c[3] ? 'pick' : ''}">${c[0]}. ${c[1]}<small>${c[2]}${c[3] ? ' · proposed' : ''}</small></th>`).join('') + '</tr></thead><tbody>' +
+  rows.map(r => `<tr><th scope="row">${r[0]}</th>` + r.slice(1).map((c, i) => `<td class="${cols[i][3] ? 'pick' : ''}"><span class="rate ${c[0]}"><i class="dot" aria-hidden="true"></i><span>${c[1]}</span></span></td>`).join('') + '</tr>').join('') + '</tbody>';
+
+/* ---------- benchmark chart ---------- */
+const bench = [
+  { q: 'Backlinks', fr: 'FR-C2', p50: .1, p95: .1, note: 'An index lookup on edge(dst, type). Effectively free.' },
+  { q: 'Filter by tag + sub-tags', fr: 'FR-B1', p50: .7, p95: 2.7, note: 'Walks the tag tree with a recursive CTE, then returns one page of 50 bookmarks.' },
+  { q: 'Neighbourhood, depth 2', fr: 'FR-F1', p50: 1.3, p95: 2.0, note: 'Fanout capped at 50 per hop, 200 nodes total. The caps are what keep hubs cheap.' },
+  { q: 'Related, with reasons', fr: 'FR-C1', p50: 1.6, p95: 3.4, note: 'Scores shared tags, topics, author, domain and links, and returns the reasons with each hit.' },
+  { q: 'Neighbourhood from hub tags', fr: 'FR-F1', p50: 2.7, p95: 3.2, note: 'Starts from the most-used tags (up to 2,230 bookmarks each). The fanout cap holds.' },
+  { q: 'Neighbourhood, depth 3', fr: 'FR-F1', p50: 18.6, p95: 29.6, note: 'The deepest the API will allow. Still 10x under budget.' },
+  { q: 'Reading queue, 30 seeds', fr: 'FR-D1', p50: 21.8, p95: 22.0, note: 'Seeds from the 30 most recent reads. The proposed default.' },
+  { q: 'Path, up to 4 hops', fr: 'FR-C3', p50: 46, p95: 194, note: 'P2 feature. Fast enough, but the paths it finds go through hubs and need a penalty.' },
+  { q: 'Reading queue, all 486 seeds', fr: 'FR-D1', p50: 285, p95: 325, note: 'Seeds from every read in the 7-day window. Over budget at p95, hence the seed cap.' },
+];
+(function chart() {
+  const svg = $('#chart'), L = 230, R = 100, T = 48, rowH = 34, W = 760;
+  const lo = Math.log10(0.05), hi = Math.log10(1000);
+  const x = v => L + (Math.log10(v) - lo) / (hi - lo) * (W - L - R);
+  const H = T + bench.length * rowH + 10;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  [0.1, 1, 10, 100, 1000].forEach(t => {
+    const g = el('g', { class: 'tick' }, svg);
+    el('line', { x1: x(t), x2: x(t), y1: T - 6, y2: H - 8, class: 'ax' }, g);
+    el('text', { x: x(t), y: T - 12, 'text-anchor': 'middle' }, g).textContent = (t < 1 ? t : t.toLocaleString()) + ' ms';
+  });
+  const note = $('#chartNote');
+  bench.forEach((b, i) => {
+    const y = T + i * rowH, cy = y + rowH / 2;
+    const g = el('g', { class: 'row-hit', tabindex: 0, role: 'button', 'aria-label': `${b.q}: p50 ${b.p50} ms, p95 ${b.p95} ms` }, svg);
+    el('rect', { x: 0, y, width: W, height: rowH, class: 'bg', rx: 4 }, g);
+    el('text', { x: L - 12, y: cy - 2, 'text-anchor': 'end', 'font-size': 13 }, g).textContent = b.q;
+    el('text', { x: L - 12, y: cy + 11, 'text-anchor': 'end', class: 'fr' }, g).textContent = b.fr;
+    const cls = b.p95 >= 300 ? 'bar-crit' : b.p95 >= 100 ? 'bar-warn' : 'bar-ok';
+    el('rect', { x: x(0.05), y: cy - 7, width: Math.max(2, x(b.p50) - x(0.05)), height: 14, rx: 2, class: cls }, g);
+    if (b.p95 > b.p50) {
+      el('line', { x1: x(b.p50), x2: x(b.p95), y1: cy, y2: cy, class: 'whisk' }, g);
+      el('line', { x1: x(b.p95), x2: x(b.p95), y1: cy - 5, y2: cy + 5, class: 'whisk' }, g);
+    }
+    el('text', { x: W - R + 14, y: cy + 4, class: 'val' }, g).textContent = b.p50 === b.p95 ? `${b.p50}` : `${b.p50} / ${b.p95}`;
+    const show = () => note.innerHTML = `<b style="color:var(--fg)">${b.q}</b> (p50 ${b.p50} ms, p95 ${b.p95} ms). ${b.note}`;
+    g.addEventListener('mouseenter', show); g.addEventListener('focus', show); g.addEventListener('click', show);
+  });
+  el('line', { x1: x(300), x2: x(300), y1: 20, y2: H - 8, class: 'budget' }, svg);
+  el('text', { x: W - R + 14, y: T - 12, class: 'val' }, svg).textContent = 'p50 / p95';
+  const bl = el('text', { x: x(300), y: 14, 'text-anchor': 'middle', 'font-size': 11, style: 'fill:var(--crit);font-family:var(--f-mono)' }, svg);
+  bl.textContent = '300 ms budget';
+})();
+
+/* ---------- schema graph ---------- */
+const nodes = {
+  b1: { x: 330, y: 205, kind: 'bookmark', name: '#1021 pg internals', bm: 1, table: 'bookmark' },
+  b2: { x: 330, y: 50, kind: 'bookmark', name: '#877 MVCC explained', bm: 1, table: 'bookmark' },
+  u: { x: 95, y: 110, kind: 'url_ref', name: '#4217 wal.dev/intro', table: 'url_ref' },
+  t: { x: 575, y: 140, kind: 'tag', name: 'postgres', table: 'tag' },
+  d: { x: 575, y: 320, kind: 'domain', name: 'blog.example.org', table: 'domain' },
+  a: { x: 95, y: 320, kind: 'author', name: 'J. Doe', table: 'author' },
+};
+const edges = [
+  ['b1', 'b2', 'links_to'], ['b1', 'u', 'links_to'], ['b2', 'u', 'links_to'],
+  ['b1', 't', 'tagged'], ['b1', 'd', 'on_domain'], ['b1', 'a', 'authored_by'], ['t', 't', 'child_of'],
+];
+const tables = {
+  bookmark: [['id', 'entity id'], ['url / url_normalized', 'unique'], ['canonical_url', 'from fetch'], ['title', ''], ['read_at', 'nullable'], ['enrichment_status', 'NFR-2'], ['search', 'tsvector']],
+  url_ref: [['id', 'entity id'], ['url_normalized', 'unique']],
+  tag: [['id', 'entity id'], ['name', 'unique']],
+  domain: [['id', 'entity id'], ['host', 'unique']],
+  author: [['id', 'entity id'], ['name', '']],
+};
+const blurb = {
+  bookmark: 'A saved page. Its normalized URL is unique, which is how duplicates get caught (FR-B2).',
+  url_ref: 'A page some bookmark links to but you haven\'t saved. Kept so links aren\'t lost (FR-A4).',
+  tag: 'Shared across bookmarks. child_of edges form the hierarchy, so filtering by "databases" includes "postgres" (FR-B1).',
+  domain: 'Linked automatically on save (FR-A2).',
+  author: 'Pulled from page metadata when the fetch finds one.',
+};
+const NW = 150, NH = 46;
+const graph = $('#graph');
+const defs = el('defs', {}, graph);
+const mk = el('marker', { id: 'arr', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, defs);
+el('path', { d: 'M0,0 L10,5 L0,10 z', class: 'arrow' }, mk);
+const mk2 = el('marker', { id: 'arrHot', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, defs);
+el('path', { d: 'M0,0 L10,5 L0,10 z', style: 'fill:var(--ok)' }, mk2);
+const clip = (from, to) => {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const t = Math.min((NW / 2 + 4) / Math.abs(dx || 1e-9), (NH / 2 + 4) / Math.abs(dy || 1e-9));
+  return { x: to.x - dx * t, y: to.y - dy * t };
+};
+const edgeEls = [];
+edges.forEach(([s, d, type]) => {
+  const A = nodes[s], B = nodes[d];
+  let path, lx, ly;
+  if (s === d) {
+    const x0 = A.x + 30, y0 = A.y - NH / 2;
+    path = `M${x0 - 50},${y0} C${x0 - 50},${y0 - 55} ${x0 + 20},${y0 - 55} ${x0 + 20},${y0 - 4}`;
+    lx = x0 - 15; ly = y0 - 46;
+  } else {
+    const p = clip(B, A), q = clip(A, B);
+    path = `M${p.x},${p.y} L${q.x},${q.y}`;
+    lx = (p.x + q.x) / 2; ly = (p.y + q.y) / 2 - 6;
+  }
+  const e = el('path', { d: path, class: 'edge', 'marker-end': 'url(#arr)' }, graph);
+  const lab = el('text', { x: lx, y: ly, class: 'elabel', 'text-anchor': 'middle' }, graph);
+  lab.textContent = type;
+  edgeEls.push({ e, s, d, type });
+});
+const nodeEls = {};
+Object.entries(nodes).forEach(([id, n]) => {
+  const g = el('g', { class: 'node' + (n.bm ? ' bm' : ''), tabindex: 0, role: 'button', transform: `translate(${n.x - NW / 2},${n.y - NH / 2})` }, graph);
+  el('rect', { width: NW, height: NH, rx: 8 }, g);
+  const k = el('text', { x: 12, y: 18, class: 'k' }, g); k.textContent = n.kind.toUpperCase();
+  const nm = el('text', { x: 12, y: 36, class: 'n' }, g); nm.textContent = n.name;
+  g.addEventListener('click', () => select(id)); g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(id); } });
+  nodeEls[id] = { g, k };
+});
+function select(id) {
+  Object.values(nodeEls).forEach(n => n.g.classList.remove('sel'));
+  nodeEls[id].g.classList.add('sel');
+  const n = nodes[id];
+  const out = edgeEls.filter(x => x.s === id && x.d !== id).length, inc = edgeEls.filter(x => x.d === id && x.s !== id).length;
+  $('#detail').innerHTML = `<span class="eyebrow">table ${n.table}</span><h3>${n.name}</h3><p style="font-size:13.5px">${blurb[n.table]}</p>
+    <table>${tables[n.table].map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>
+    <p class="muted" style="font-size:12.5px">${out} outgoing, ${inc} incoming edges here.</p>`;
+}
+select('b1');
+let promoted = false;
+$('#promote').addEventListener('click', () => {
+  promoted = !promoted;
+  const n = nodes.u, ne = nodeEls.u;
+  n.kind = promoted ? 'bookmark' : 'url_ref'; n.table = n.kind; n.bm = promoted;
+  ne.k.textContent = n.kind.toUpperCase();
+  ne.g.classList.toggle('promoting', promoted);
+  edgeEls.filter(x => x.d === 'u').forEach(x => { x.e.classList.toggle('hot', promoted); x.e.setAttribute('marker-end', promoted ? 'url(#arrHot)' : 'url(#arr)'); });
+  $('#promote').textContent = promoted ? 'Reset' : 'Save the linked page as a bookmark';
+  const note = $('#promoteNote');
+  note.hidden = !promoted;
+  note.innerHTML = 'Entity <code>#4217</code> keeps its id; only its kind changes from <code>url</code> to <code>bookmark</code>. Both incoming <code>links_to</code> edges now point at a saved bookmark and immediately show up as backlinks. No edge rows were rewritten.';
+  select('u');
+});
+
+/* ---------- pipeline ---------- */
+const steps = [
+  ['POST /bookmarks', 'insert bookmark + job', 'api'], ['m'],
+  ['Fetch', 'timeouts, size cap, SSRF guard'], ['Normalize + dedupe', 'utm_*, redirects, canonical'],
+  ['Extract', 'title, author, links'], ['Resolve links', 'bookmark or url_ref'],
+  ['Topics', 'P2 · LLM', 'p2'], ['Embeddings', 'P2 · pgvector', 'p2'],
+];
+$('#pipe').innerHTML = steps.map((s, i) => {
+  if (s[0] === 'm') return '<span class="marker">201 returned</span>';
+  return (i > 0 && steps[i - 1][0] !== 'm' ? '<span class="arr" aria-hidden="true">→</span>' : '') +
+    `<div class="step ${s[2] || ''}">${s[0]}<small>${s[1]}</small></div>`;
+}).join('');
+
+/* ---------- verdicts ---------- */
+const decisions = [
+  ['storage', 'Store the graph as plain Postgres tables (option C)', 'Not Apache AGE, not Neo4j/Memgraph. AGE can still be added later.'],
+  ['sor', 'Postgres stays the only store and the system of record', 'No derived graph index to keep in sync.'],
+  ['edges', 'P1 edge types: tagged, child_of, on_domain, links_to, authored_by', 'Dedupe aliases go in a table, not edges.'],
+  ['entity', 'One shared id space for every node kind', 'Lets a linked URL become a bookmark without rewriting edges.'],
+  ['queue', 'Enrichment queue is a Postgres table worked inside the API process', 'SKIP LOCKED + LISTEN/NOTIFY; no Redis or RabbitMQ.'],
+  ['ssrf', 'Fetcher blocks private network addresses by default', 'Configurable, for intranet bookmarks.'],
+  ['llm', 'Phase 1 ships without an LLM; provider decided in ADR 0002', 'Topics and embeddings are P2.'],
+  ['ef', 'Switch to EF Core code-first migrations', 'Replaces database-first scaffolding and EnsureCreated().'],
+  ['caps', 'Hard caps on graph APIs: depth ≤ 3, limit ≤ 200, capped queue seeds', 'From the benchmark findings.'],
+  ['plan', 'Phase 1 as 8 PRs, starting with schema, migrations and the image bump', 'Image moves to pgvector/pgvector:pg18, with the volume fix.'],
+];
+const KEY = 'adr0001-review';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { state = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const labels = { a: 'Accept', q: 'Question', r: 'Reject' };
+const list = $('#decisions');
+decisions.forEach(([id, t, s]) => {
+  const li = document.createElement('li'); li.className = 'dec';
+  li.innerHTML = `<div><div class="t">${t}</div><div class="s">${s}</div></div>
+    <div class="seg" role="group" aria-label="Verdict">${Object.entries(labels).map(([k, v]) => `<button type="button" class="${k}" data-v="${k}" aria-pressed="false">${v}</button>`).join('')}</div>
+    <textarea id="note-${id}" rows="1" placeholder="Note (optional)" aria-label="Note for: ${t}"></textarea>`;
+  const st = state[id] || (state[id] = { v: '', n: '' });
+  const btns = li.querySelectorAll('.seg button'), ta = li.querySelector('textarea');
+  const paint = () => btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === st.v)));
+  btns.forEach(b => b.addEventListener('click', () => { st.v = st.v === b.dataset.v ? '' : b.dataset.v; paint(); save(); tally(); }));
+  ta.value = st.n || '';
+  ta.addEventListener('input', () => { st.n = ta.value; save(); });
+  paint(); list.appendChild(li);
+});
+function tally() {
+  const c = { a: 0, q: 0, r: 0, '': 0 };
+  decisions.forEach(([id]) => c[state[id].v]++);
+  $('#tally').innerHTML = `<span class="chip a">${c.a} accepted</span><span class="chip q">${c.q} questioned</span><span class="chip r">${c.r} rejected</span><span class="chip">${c['']} unmarked</span>`;
+}
+tally();
+function reviewText() {
+  const lines = ['### ADR 0001 review', ''];
+  decisions.forEach(([id, t]) => {
+    const st = state[id];
+    lines.push(`- **${st.v ? labels[st.v] : 'Unmarked'}**: ${t}${st.n.trim() ? `\n  - ${st.n.trim().replace(/\n/g, '\n    ')}` : ''}`);
+  });
+  return lines.join('\n');
+}
+$('#copy').addEventListener('click', () => {
+  const txt = reviewText(), out = $('#out'), status = $('#copyStatus');
+  out.value = txt;
+  const fallback = () => { out.hidden = false; out.focus(); out.select(); status.textContent = 'Copy the selected text manually.'; };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(() => { out.hidden = false; status.textContent = 'Copied. Paste it as a comment on PR #16.'; }, fallback);
+  } else fallback();
+});
+$('#reset').addEventListener('click', () => {
+  decisions.forEach(([id]) => state[id] = { v: '', n: '' }); save();
+  list.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  list.querySelectorAll('textarea').forEach(t => t.value = '');
+  $('#out').hidden = true; $('#copyStatus').textContent = ''; tally();
+});
+</script>
+
+</body>
+</html>

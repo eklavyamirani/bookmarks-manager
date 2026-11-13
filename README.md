@@ -41,6 +41,10 @@
 19. Add ability to search within the bookmarks
 20. Need to publish arm64 version of the docker image
 21. My github repo bookmarks manager has a new issue #15. Can you start working on it?
+22. I need some creating way to review this change, instead of a lot of text
+23. could you maybe create an animated infographic ?
+24. can this page with its animation render in github?
+25. Let's use github pages instead
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)

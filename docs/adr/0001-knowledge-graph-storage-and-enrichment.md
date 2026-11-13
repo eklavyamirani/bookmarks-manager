@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-11-13
 - **Issue:** #15 (open questions 1, 3, 4; question 2 only partly, see [Enrichment](#enrichment-pipeline))
+- **Visual versions:** [animated walkthrough](https://eklavyamirani.github.io/bookmarks-manager/adr/0001-story.html) · [review page](https://eklavyamirani.github.io/bookmarks-manager/adr/0001-review.html) (GitHub Pages, served from `/docs`)
 
 ## Context
 
