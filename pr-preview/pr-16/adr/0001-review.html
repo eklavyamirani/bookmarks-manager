@@ -227,8 +227,8 @@ ol.decisions{list-style:none;margin:0;padding:0;display:grid;gap:0}
       <p>Compose still uses <code>18beta1</code>. On 18 GA images the data lives in <code>/var/lib/postgresql/18/docker</code>, so the current mount misses it.</p>
       <pre class="diff"><span class="m">- postgres-data:/var/lib/postgresql/data</span>
 <span class="p">+ postgres-data:/var/lib/postgresql</span></pre></article>
-    <article class="flag"><span class="sev">Design rule</span><h3>Reading queue must cap its seeds</h3>
-      <p>Seeding from all 486 reads in 7 days: 285 ms p50. Seeding from the 30 most recent: 22 ms. Cap it and weight by recency.</p></article>
+    <article class="flag"><span class="sev">Design rule</span><h3>Reading queue must discount popular tags</h3>
+      <p>One tag on 2,230 bookmarks made 250k of the queue's 688k rows. All reads, every tag: 324 ms. 30 reads with popular tags skipped or discounted: 9 ms. Ranking quality still needs checking on real bookmarks.</p></article>
     <article class="flag"><span class="sev">Design rule</span><h3>Path search detours through hubs</h3>
       <p>Bookmark 42 to bookmark 2599 came back as <code>42 → tag 20001 → 2599</code>: correct, but useless. FR-C3 needs a penalty for highly connected nodes.</p></article>
     <article class="flag"><span class="sev">Breaks NFR-3</span><h3>Devcontainer doesn't match the app</h3>
@@ -435,7 +435,7 @@ const decisions = [
   ['ssrf', 'Fetcher blocks private network addresses by default', 'Configurable, for intranet bookmarks.'],
   ['llm', 'Phase 1 ships without an LLM; provider decided in ADR 0002', 'Topics and embeddings are P2.'],
   ['ef', 'Switch to EF Core code-first migrations', 'Replaces database-first scaffolding and EnsureCreated().'],
-  ['caps', 'Hard caps on graph APIs: depth ≤ 3, limit ≤ 200, capped queue seeds', 'From the benchmark findings.'],
+  ['caps', 'Hard caps on graph APIs: depth ≤ 3, limit ≤ 200; queue caps seeds and discounts popular tags', 'From the benchmark findings. Queue ranking gets checked on real data in its PR.'],
   ['plan', 'Phase 1 as 8 PRs, starting with schema, migrations and the image bump', 'Image moves to pgvector/pgvector:pg18, with the volume fix.'],
 ];
 const KEY = 'adr0001-review';
