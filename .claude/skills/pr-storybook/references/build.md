@@ -109,4 +109,5 @@ Run a quick check in a headless browser (Playwright is preinstalled in cloud ses
 - Serve `docs/` with `python3 -m http.server` and load every page. There should be no `pageerror` and no broken relative links.
 - Open a deep link (`#s3-<ref>`) and confirm the reference box shows that element.
 - Click a referenceable element, then use Copy question. The text should match the format in section 4.
+- Read every label drawn in each scene. Any term the reviewer might not know (for example "SSRF guard") must be defined in that scene's Why or Example card.
 - Take a screenshot of each scene's final frame, using `reducedMotion: 'reduce'` to skip animation. Look for overlapping labels and text clipped at the stage edges.

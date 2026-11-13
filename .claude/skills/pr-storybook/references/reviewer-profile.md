@@ -69,3 +69,4 @@ Newest last. Each entry has the reviewer's words and the rule it produced.
 | 11 | "The why part is missing from the sub-parts of this explanation" | A why on every sub-part: steps, numbers, options, recommendations |
 | 12 | "As I ask questions, use them as an opportunity to consider strong candidates to tweak the storybook and suggest the insight to update either the current slide or the entire storybook." | Every answer ends with one or two storybook insights, scoped to this scene or the whole storybook; suggest only |
 | 13 | "Each answer does not need to force the insight. Only consider insights with medium to high level of confidence." | Insights are optional; offer one only at medium-high confidence |
+| 14 | "What is the SSRF guard?" (about a two-word label in a scene) | Every term shown in a scene, even a short label on a diagram, gets defined in that scene's Why or Example card |

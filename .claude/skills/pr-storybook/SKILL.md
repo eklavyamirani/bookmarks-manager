@@ -23,7 +23,7 @@ Read `references/build.md`, then:
    - Measure performance claims rather than estimating them. Commit the benchmark scripts next to the page.
    - The storybook is only as trustworthy as its numbers.
 2. **Plan the scenes** (5–8): one line each, naming the claim and the animated moment that proves it. Show the plan to the user if the change is large.
-3. **Build from `assets/reference-storybook.html`.** Keep its generic player, reference and Ask machinery, and replace the content (the `SC` array, the SVG scenes, `DUR` and `P2`).
+3. **Build from `assets/reference-storybook.html`.** Keep its generic player, reference and Ask machinery, and replace the content (the `SC` array, the SVG scenes, `DUR` and `PH`).
 4. **Write the text to the reviewer profile:**
    - A why on every sub-part.
    - Examples taken from the change's own data.
