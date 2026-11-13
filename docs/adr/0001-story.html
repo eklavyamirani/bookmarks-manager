@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Graph in Postgres</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a 16:9 stage plays one scene at a time; below it the caption, a Why card and an Example card,
+   then an Ask box that turns any clicked part into a reference. Deliberate single dark look. */
+:root{
+  --bg:#0b1422; --stage:#0f1c2f; --panel:#122036; --grid:#16263c; --ink:#e9eff6; --muted:#8fa3ba; --line:#2a3d57;
+  --teal:#40c3cc; --amber:#f2a93b; --coral:#f2735f; --green:#4fc78d;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 64px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:16px}
+a{color:var(--teal)}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.tag{font:500 12px/1.4 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stage{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--stage)}
+svg#s{display:block;width:100%;height:auto}
+svg text{font-family:var(--f-body);fill:var(--ink)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.hint b{color:var(--amber);font-weight:500}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font:500 14px/1 var(--f-body);color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:10px 16px;cursor:pointer}
+button:hover{border-color:var(--teal)}
+button:focus-visible,a:focus-visible,textarea:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+button.primary{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+.dots{display:flex;gap:6px;flex:1;min-width:160px}
+.dots button{flex:1;height:8px;padding:0;border-radius:4px;border:0;background:var(--line);position:relative;overflow:hidden}
+.dots button.cur{background:var(--teal)}
+.dots button.done{background:#2f6f78}
+.count{font:500 13px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+
+.caption{display:grid;gap:6px}
+.caption h1{font:800 clamp(24px,4vw,34px)/1.1 var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.caption p{margin:0;color:var(--muted);max-width:72ch;font-size:16px}
+.explain{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.explain{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;gap:10px;align-content:start;min-width:0}
+.card header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h2{margin:0;font:600 13px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--amber)}
+.card.ex h2{color:var(--teal)}
+.card p{margin:0;max-width:68ch}
+.card pre{margin:0;font:12.5px/1.55 var(--f-mono);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;overflow-x:auto;color:var(--ink)}
+.card pre .c{color:var(--muted)}
+.card code{font:.9em var(--f-mono);color:var(--ink);background:var(--bg);padding:1px 5px;border-radius:4px}
+.refbtn{font:500 12px/1 var(--f-mono);padding:6px 9px;color:var(--muted)}
+.card.picked{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber)}
+
+/* references */
+svg [data-ref]{cursor:pointer}
+svg [data-ref]:hover{filter:drop-shadow(0 0 5px rgba(242,169,59,.55))}
+svg .picked{filter:drop-shadow(0 0 2px var(--amber)) drop-shadow(0 0 9px var(--amber))}
+.ask{border:1px dashed var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:10px}
+.refline{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font:500 13px/1.3 var(--f-mono);background:#2b2414;color:var(--amber);border:1px solid #5a4620;border-radius:6px;padding:5px 9px;min-width:0;overflow-wrap:anywhere}
+.ask textarea{width:100%;min-height:72px;resize:vertical;font:14px/1.45 var(--f-body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 11px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.status{font-size:13px;color:var(--green)}
+#out{width:100%;min-height:110px;font:12.5px/1.5 var(--f-mono);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 11px}
+
+/* ---- scene machinery ---- */
+.scene{opacity:0;visibility:hidden;transition:opacity .45s,visibility 0s .45s}
+.scene.on{opacity:1;visibility:visible;transition:opacity .45s}
+.pop{opacity:0;transform:translateY(14px);transform-box:fill-box;transform-origin:center;transition:opacity .55s var(--d,0s),transform .55s cubic-bezier(.2,.8,.2,1) var(--d,0s)}
+.scene.on .pop{opacity:1;transform:none}
+.zoom{opacity:0;transform:scale(.6);transform-box:fill-box;transform-origin:center;transition:opacity .45s var(--d,0s),transform .5s cubic-bezier(.3,1.6,.5,1) var(--d,0s)}
+.scene.on .zoom{opacity:1;transform:none}
+.draw{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .8s ease-out var(--d,0s)}
+.scene.on .draw{stroke-dashoffset:0}
+.late{opacity:0;transition:opacity .5s var(--d,0s)}
+.scene.on.p2 .late{opacity:1}
+.p2fade{transition:opacity .5s}
+.scene.on.p2 .p2fade{opacity:.28}
+
+.box{fill:var(--stage);stroke:var(--line);stroke-width:2}
+.box.bm{stroke:var(--teal)}
+.k{font:500 13px var(--f-mono)!important;fill:var(--muted)!important;letter-spacing:.06em}
+.big{font:700 22px var(--f-display)!important}
+.edge{stroke:var(--muted);stroke-width:2;fill:none}
+.lbl{font:500 14px var(--f-mono)!important;fill:var(--muted)!important}
+.row{fill:#13243a;stroke:var(--line)}
+.rowtxt{font:500 17px var(--f-mono)!important;fill:var(--muted)!important}
+.ocard{fill:#122036;stroke:var(--line);stroke-width:2;transition:stroke .5s,fill .5s}
+.scene.on.p2 .ocard.win{stroke:var(--green);fill:#123128}
+.bul{font-size:18px!important}
+.x{stroke:var(--coral);stroke-width:6;stroke-linecap:round}
+.stamp{font:800 18px var(--f-display)!important;letter-spacing:.08em}
+.tick{font:500 13px var(--f-mono)!important;fill:var(--muted)!important}
+.ax{stroke:var(--grid);stroke-width:1.5}
+.budget{stroke:var(--coral);stroke-width:2.5;stroke-dasharray:8 6}
+.hitline{stroke:transparent;stroke-width:18}
+.bar{transform-box:fill-box;transform-origin:0 50%;transform:scaleX(0);transition:transform 1s cubic-bezier(.2,.8,.2,1) var(--d,0s),fill .6s}
+.scene.on .bar{transform:scaleX(1)}
+.bar.ok{fill:var(--green)}.bar.warn{fill:var(--amber)}.bar.crit{fill:var(--coral)}
+.scene.on.f4 .bar.q{transform:scaleX(var(--r));fill:var(--green);transition-delay:.3s}
+#chart{transition:opacity .5s}
+.scene.f2:not(.f4) #chart{opacity:0;pointer-events:none}
+.fan{opacity:0;pointer-events:none;transition:opacity .5s}
+.scene.f2:not(.f4) .fan{opacity:1;pointer-events:auto}
+.fan .fi{opacity:0;transform:translateY(10px);transform-box:fill-box;transition:opacity .5s var(--d,0s),transform .5s var(--d,0s)}
+.scene.f2 .fan .fi{opacity:1;transform:none}
+.n2{transition:opacity .4s}.scene.f3 .n2{opacity:0}
+.n3{opacity:0;transition:opacity .4s .5s}.scene.f3 .n3{opacity:1}
+.fbar{transform-box:fill-box;transform-origin:0 50%;transition:transform 1.2s cubic-bezier(.2,.8,.2,1) .3s}
+.scene.f3 .fbar{transform:scaleX(var(--k))}
+.fseg{transition:fill .6s .3s}.scene.f3 .fseg{fill:var(--green)}
+.s4A{transition:opacity .4s .3s}.scene.f4 .s4A{opacity:0}
+.s4B{opacity:0;transition:opacity .4s .8s}.scene.f4 .s4B{opacity:1}
+.f4in{opacity:0;transition:opacity .5s 1s}.scene.f4 .f4in{opacity:1}
+.fbox{fill:#122036;stroke:var(--line);stroke-width:2}
+.fnum{font:800 40px var(--f-display)!important;font-variant-numeric:tabular-nums}
+.fsub{font-size:15px!important;fill:var(--muted)!important}
+.val{font:500 15px var(--f-mono)!important;fill:var(--muted)!important}
+.name{font-size:17px!important}
+.rowbg{fill:transparent}
+.swapA{transition:opacity .4s}.scene.on.p2 .swapA{opacity:0}
+.swapB{opacity:0;transition:opacity .4s .5s}.scene.on.p2 .swapB{opacity:1}
+.step{fill:#122036;stroke:var(--line);stroke-width:2}
+.step.api{stroke:var(--teal)}
+.step.p2s{stroke-dasharray:7 6;fill:transparent}
+.ok201{fill:var(--green)}
+.token{fill:var(--amber)}
+.flip{transition:fill .6s,stroke .6s}
+.scene.on.p2 .flip{fill:#123128;stroke:var(--green)}
+.hot{transition:stroke .6s,stroke-width .6s}
+.scene.on.p2 .hot{stroke:var(--green);stroke-width:3.5}
+.flag{fill:#122036;stroke:var(--line);stroke-width:2}
+.sev{font:500 13px var(--f-mono)!important;letter-spacing:.08em}
+.huge{font:800 96px var(--f-display)!important;letter-spacing:-.02em}
+.num{font:800 64px var(--f-display)!important;fill:var(--teal)!important;font-variant-numeric:tabular-nums}
+
+@media (prefers-reduced-motion:reduce){
+  .scene,.pop,.zoom,.draw,.late,.bar,.flip,.hot,.ocard,.swapA,.swapB,.p2fade,#chart,.fan,.fan .fi,.n2,.n3,.fbar,.fseg,.s4A,.s4B,.f4in{transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <span class="tag">ADR 0001 · issue #15 · <a href="https://github.com/eklavyamirani/bookmarks-manager/pull/16" target="_blank" rel="noopener">PR #16</a> · <a href="0001-review.html">Review page</a></span>
+    <span class="count" id="count">S1 · 1 / 7</span>
+  </div>
+
+  <div class="stage">
+  <svg id="s" viewBox="0 0 960 540" role="img" aria-labelledby="capTitle">
+    <defs>
+      <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="var(--grid)" stroke-width="1"/></pattern>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--muted)"/></marker>
+    </defs>
+    <rect width="960" height="540" fill="url(#grid)"/>
+
+    <!-- S1: list to graph -->
+    <g class="scene">
+      <g data-ref="list" data-label="today's list of saved links">
+        <rect x="70" y="70" width="370" height="345" fill="transparent"/>
+        <text x="80" y="92" class="k">SAVED_LINKS TODAY</text>
+        <g class="pop" style="--d:.1s"><rect class="row" x="80" y="112" width="340" height="50" rx="6"/><text x="100" y="143" class="rowtxt">postgres.org/docs/mvcc</text></g>
+        <g class="pop" style="--d:.2s"><rect class="row" x="80" y="172" width="340" height="50" rx="6"/><text x="100" y="203" class="rowtxt">blog.example.org/pg-internals</text></g>
+        <g class="pop" style="--d:.3s"><rect class="row" x="80" y="232" width="340" height="50" rx="6"/><text x="100" y="263" class="rowtxt">wal.dev/intro</text></g>
+        <g class="pop" style="--d:.4s"><rect class="row" x="80" y="292" width="340" height="50" rx="6"/><text x="100" y="323" class="rowtxt">news.ycombinator.com/item…</text></g>
+        <g class="pop" style="--d:.5s"><rect class="row" x="80" y="352" width="340" height="50" rx="6"/><text x="100" y="383" class="rowtxt">github.com/apache/age</text></g>
+      </g>
+      <path class="draw" pathLength="1" d="M440 260 H500" stroke="var(--teal)" stroke-width="3" marker-end="url(#ar)" style="--d:1s"/>
+      <g data-ref="graph" data-label="the same bookmarks as a graph"><rect x="500" y="70" width="440" height="360" fill="transparent"/><g id="g1edges"></g><g id="g1nodes"></g></g>
+    </g>
+
+    <!-- S2: options -->
+    <g class="scene">
+      <g class="pop" style="--d:.1s" data-ref="age" data-label="option A, Apache AGE"><g class="p2fade">
+        <rect class="ocard" x="40" y="70" width="270" height="380" rx="12"/>
+        <text x="64" y="112" class="k">A</text><text x="64" y="146" class="big">Apache AGE</text>
+        <text x="64" y="200" class="bul">No official .NET driver</text>
+        <text x="64" y="240" class="bul">No graph algorithms</text>
+        <text x="64" y="280" class="bul">Custom image needed</text>
+        <text x="64" y="304" class="bul" style="fill:var(--muted)">to add pgvector</text>
+      </g></g>
+      <g class="pop" style="--d:.25s" data-ref="neo4j" data-label="option B, Neo4j / Memgraph"><g class="p2fade">
+        <rect class="ocard" x="345" y="70" width="270" height="380" rx="12"/>
+        <text x="369" y="112" class="k">B</text><text x="369" y="146" class="big">Neo4j / Memgraph</text>
+        <text x="369" y="200" class="bul">Second datastore</text>
+        <text x="369" y="224" class="bul" style="fill:var(--muted)">plus syncing</text>
+        <text x="369" y="264" class="bul">JVM on an arm64 box</text>
+        <text x="369" y="304" class="bul">GPLv3 / BSL</text>
+      </g></g>
+      <g class="pop" style="--d:.4s" data-ref="postgres" data-label="option C, Postgres tables">
+        <rect class="ocard win" x="650" y="70" width="270" height="380" rx="12"/>
+        <text x="674" y="112" class="k">C</text><text x="674" y="146" class="big">Postgres tables</text>
+        <text x="674" y="200" class="bul">One datastore</text>
+        <text x="674" y="240" class="bul">EF Core + Npgsql</text>
+        <text x="674" y="280" class="bul">Official pgvector image</text>
+        <text x="674" y="304" class="bul" style="fill:var(--muted)">amd64 + arm64</text>
+        <g class="late" style="--d:.3s"><rect x="700" y="372" width="170" height="44" rx="22" fill="var(--green)"/><text x="785" y="401" text-anchor="middle" class="stamp" style="fill:var(--bg)">PROPOSED</text></g>
+      </g>
+      <g class="late" style="--d:0s;pointer-events:none"><path class="x" d="M150 370 l50 50 M200 370 l-50 50"/><path class="x" d="M455 370 l50 50 M505 370 l-50 50"/></g>
+    </g>
+
+    <!-- S3: benchmark -->
+    <g class="scene"><g id="chart"></g><g class="fan" id="fan"></g></g>
+
+    <!-- S4: pipeline -->
+    <g class="scene"><g id="pipe"></g></g>
+
+    <!-- S5: one id space -->
+    <g class="scene">
+      <path class="edge hot draw" pathLength="1" d="M330 170 L585 255" marker-end="url(#ar)" style="--d:.5s"/>
+      <path class="edge hot draw" pathLength="1" d="M330 370 L585 285" marker-end="url(#ar)" style="--d:.7s"/>
+      <text x="440" y="190" class="lbl pop" style="--d:.9s">links_to</text>
+      <text x="440" y="368" class="lbl pop" style="--d:.9s">links_to</text>
+      <g class="pop" style="--d:.1s" data-ref="b877" data-label="bookmark #877"><rect class="box bm" x="90" y="130" width="240" height="80" rx="10"/><text x="112" y="162" class="k">BOOKMARK #877</text><text x="112" y="192" style="font-size:19px">MVCC explained</text></g>
+      <g class="pop" style="--d:.25s" data-ref="b1021" data-label="bookmark #1021"><rect class="box bm" x="90" y="330" width="240" height="80" rx="10"/><text x="112" y="362" class="k">BOOKMARK #1021</text><text x="112" y="392" style="font-size:19px">pg internals</text></g>
+      <g class="zoom" style="--d:.4s" data-ref="url4217" data-label="entity #4217, the linked page"><rect class="box flip" x="590" y="230" width="270" height="80" rx="10"/>
+        <text x="612" y="262" class="k swapA">URL_REF #4217</text><text x="612" y="262" class="k swapB" style="fill:var(--green)!important">BOOKMARK #4217</text>
+        <text x="612" y="292" style="font-size:19px">wal.dev/intro</text></g>
+      <g class="late" style="--d:.6s" data-ref="result" data-label="the result: 0 edges rewritten">
+        <rect x="590" y="340" width="270" height="88" rx="10" fill="#123128"/>
+        <text x="612" y="376" style="font:700 20px var(--f-display);fill:var(--green)">0 edges rewritten</text>
+        <text x="612" y="406" style="font-size:17px;fill:var(--ink)">2 new backlinks</text>
+      </g>
+    </g>
+
+    <!-- S6: flags -->
+    <g class="scene">
+      <g class="zoom" style="--d:.1s" data-ref="pg18" data-label="flag: Postgres 18 data path"><rect class="flag" x="60" y="70" width="410" height="185" rx="12" style="stroke:var(--coral)"/>
+        <text x="86" y="108" class="sev" style="fill:var(--coral)">BREAKS ON UPGRADE</text>
+        <text x="86" y="146" class="big">Postgres 18 data path moved</text>
+        <text x="86" y="186" style="font:500 15px var(--f-mono);fill:var(--coral)">- /var/lib/postgresql/data</text>
+        <text x="86" y="214" style="font:500 15px var(--f-mono);fill:var(--green)">+ /var/lib/postgresql</text></g>
+      <g class="zoom" style="--d:.35s" data-ref="queue-cap" data-label="flag: queue must discount popular tags"><rect class="flag" x="490" y="70" width="410" height="185" rx="12"/>
+        <text x="516" y="108" class="sev" style="fill:var(--amber)">QUERY RULE</text>
+        <text x="516" y="146" class="big">Queue: discount popular tags</text>
+        <text x="516" y="186" style="font-size:17px;fill:var(--muted)">All reads, every tag: 324 ms</text>
+        <text x="516" y="214" style="font-size:17px;fill:var(--muted)">30 reads, popular discounted: 9 ms</text></g>
+      <g class="zoom" style="--d:.6s" data-ref="path-hubs" data-label="flag: hubs in path search"><rect class="flag" x="60" y="275" width="410" height="185" rx="12"/>
+        <text x="86" y="313" class="sev" style="fill:var(--amber)">QUERY RULE</text>
+        <text x="86" y="351" class="big">Penalize hubs in path search</text>
+        <text x="86" y="391" style="font:500 16px var(--f-mono);fill:var(--muted)">42 → popular tag → 2599</text>
+        <text x="86" y="419" style="font-size:17px;fill:var(--muted)">Correct, but useless</text></g>
+      <g class="zoom" style="--d:.85s" data-ref="devcontainer" data-label="flag: devcontainer out of date"><rect class="flag" x="490" y="275" width="410" height="185" rx="12"/>
+        <text x="516" y="313" class="sev" style="fill:var(--amber)">BREAKS DEV SETUP</text>
+        <text x="516" y="351" class="big">Devcontainer is out of date</text>
+        <text x="516" y="391" style="font-size:17px;fill:var(--muted)">.NET 8 base, app targets net9.0</text>
+        <text x="516" y="419" style="font-size:17px;fill:var(--muted)">nvim download is arm64 only</text></g>
+    </g>
+
+    <!-- S7: finale -->
+    <g class="scene" id="sc7">
+      <text x="480" y="200" text-anchor="middle" class="huge pop" style="--d:.1s">Postgres.</text>
+      <g class="pop" style="--d:.5s" data-ref="datastore" data-label="stat: 1 datastore"><rect x="90" y="290" width="220" height="140" fill="transparent"/><text x="200" y="350" text-anchor="middle" class="num" data-to="1">0</text><text x="200" y="392" text-anchor="middle" style="font-size:19px;fill:var(--muted)">datastore</text></g>
+      <g class="pop" style="--d:.7s" data-ref="queries" data-label="stat: 9 of 9 queries under 300 ms"><rect x="350" y="290" width="260" height="140" fill="transparent"/><text x="480" y="350" text-anchor="middle" class="num" data-to="9" data-suffix=" / 9">0</text><text x="480" y="392" text-anchor="middle" style="font-size:19px;fill:var(--muted)">queries under 300 ms at p95</text><text x="480" y="418" text-anchor="middle" style="font-size:15px;fill:var(--muted)">with the queue capped</text></g>
+      <g class="pop" style="--d:.9s" data-ref="services" data-label="stat: 0 new services"><rect x="650" y="290" width="220" height="140" fill="transparent"/><text x="760" y="350" text-anchor="middle" class="num" data-to="0" data-from="3">3</text><text x="760" y="392" text-anchor="middle" style="font-size:19px;fill:var(--muted)">new services</text></g>
+    </g>
+  </svg>
+  </div>
+
+  <div class="controls">
+    <button id="prev" aria-label="Previous scene">←</button>
+    <button id="replay">Replay</button>
+    <button id="next" class="primary" aria-label="Next scene">Next →</button>
+    <div class="dots" id="dots"></div>
+    <button id="auto" aria-pressed="false">Auto-play</button>
+  </div>
+  <p class="hint"><b>Tip:</b> click any part of the scene, or the # on a card, to reference it in a question.</p>
+
+  <div class="caption" aria-live="polite">
+    <h1 id="capTitle"></h1>
+    <p id="capText"></p>
+  </div>
+
+  <div class="explain">
+    <article class="card" data-ref="why" data-label="Why it matters">
+      <header><h2>Why it matters</h2><button class="refbtn" data-pick="why" aria-label="Reference this card">#</button></header>
+      <div id="why"></div>
+    </article>
+    <article class="card ex" data-ref="example" data-label="Example">
+      <header><h2>Example</h2><button class="refbtn" data-pick="example" aria-label="Reference this card">#</button></header>
+      <div id="example"></div>
+    </article>
+  </div>
+
+  <section class="ask" aria-labelledby="askTitle">
+    <div class="refline">
+      <span class="tag" id="askTitle">Ask about</span>
+      <span class="chip" id="refChip"></span>
+      <button class="refbtn" id="clearRef" hidden>Use whole scene</button>
+    </div>
+    <label for="q" class="hint">Your question</label>
+    <textarea id="q" placeholder="e.g. Why not cache the queue instead of capping it?"></textarea>
+    <div class="actions">
+      <button class="primary" id="copyQ">Copy question</button>
+      <a href="https://github.com/eklavyamirani/bookmarks-manager/pull/16#issuecomment-new" target="_blank" rel="noopener">Open PR #16 to paste it</a>
+      <span class="status" id="status" role="status"></span>
+    </div>
+    <textarea id="out" readonly hidden aria-label="Question text to copy"></textarea>
+  </section>
+</div>
+
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const el = (t, a = {}, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+const txt = (t, a, p) => { const e = el('text', a, p); e.textContent = t; return e; };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- scene copy ---------- */
+const SC = [
+ { t: 'From a list to a graph',
+   c: 'Today every bookmark is a row in one table. Issue #15 connects them to tags, domains, authors and each other.',
+   why: `<p>A list can answer two questions: "show me everything" and "find this word". A graph can also answer "what else did I save about this?" and "what links here?".</p><p>That second kind is what an agent needs. It can ask for the few bookmarks around a topic instead of downloading your whole collection.</p>`,
+   ex: `<p><b>You open <i>pg internals</i>, and Related shows <i>MVCC explained</i>.</b> <i>Why:</i> pg internals links to it and both are tagged <code>postgres</code>. Two independent signals point the same way.</p>
+<p><b>It also shows <i>wal.dev/intro</i>, a page you never saved.</b> <i>Why:</i> both bookmarks cite it, so it's likely the next thing to read on this thread. A flat list has no way to surface it.</p>` },
+ { t: 'Where should the graph live?',
+   c: 'Issue #15 offered two engines. The ADR adds a third option and picks it: ordinary Postgres tables.',
+   why: `<p>At 10k bookmarks, speed doesn't pick the winner; all three are fast enough. Running cost does.</p><p>Every extra engine is one more thing to install, back up, upgrade and keep in sync, on a small arm64 box.</p>`,
+   ex: `<p>Backlinks for bookmark 42, written both ways:</p>
+<pre><span class="c">-- A. Apache AGE (Cypher inside SQL)</span>
+SELECT * FROM cypher('kg', $$
+  MATCH (b)-[:links_to]->(t {id: 42}) RETURN b
+$$) AS (b agtype);
+
+<span class="c">-- C. Plain tables</span>
+SELECT b.* FROM edge e
+JOIN bookmark b ON b.id = e.src
+WHERE e.dst = 42 AND e.type = 'links_to';</pre>
+<p><b>Why this query:</b> it's the simplest graph question in the ADR, so the only difference is the engine.</p>
+<p><b>A returns <code>agtype</code>.</b> <i>Why it matters:</i> .NET needs a community plugin to read it, and EF Core can't map it.</p>
+<p><b>C returns ordinary rows.</b> <i>Why it matters:</i> the existing EF Core and Npgsql code reads them as they are.</p>` },
+ { t: 'Is plain SQL fast enough?',
+   c: 'p50 latency at the 10k-bookmark target, with 226k edges. Then the one query over budget, the reading queue, is broken down: where its rows come from, and what the fix removes.',
+   why: `<p>NFR-4 asks for under 300 ms at 10k bookmarks. These are typical (p50) times on synthetic data shaped like real use, including "hub" tags with over 2,000 bookmarks.</p><p>The scale is logarithmic because results span 0.1 ms to 300 ms. On a linear scale, everything except the queue would be a sliver.</p><p>The queue row comes from a separate run that compared queue variants; timings vary 10–40% between runs.</p>`,
+   ex: `<p><b>What the queue does:</b> for each recent read, it finds its tags, then every other bookmark with those tags, and gives each a point. <i>Why:</i> sharing tags with what you just read is the signal for "next in this thread".</p>
+<p><b>Where the time goes:</b> rows to score ≈ reads × tags per read × bookmarks per tag. 486 reads made 688k rows, and one tag on 2,230 bookmarks made 250k of them. <i>Why that's waste:</i> a tag on a fifth of your bookmarks says almost nothing about relatedness.</p>
+<pre>A  all 486 reads              324 ms
+B  30 most recent reads        32 ms
+D  30 reads + skip/discount
+   popular tags                 9 ms</pre>
+<p><b>Still open:</b> B and D pick completely different top 20s. Which ranking is better needs your real bookmarks. The queue PR checks that.</p>` },
+ { t: 'Saving stays instant',
+   c: 'The API replies right after the insert. A background worker fetches and parses the page from a queue table in Postgres.',
+   why: `<p>Fetching a page can take seconds or fail outright. If saving waited for it, adding a bookmark from your phone or from an agent would hang.</p><p>So the API stores the bookmark and a job in one transaction and replies. A worker does the slow part, and the bookmark shows its enrichment status meanwhile (NFR-2).</p>`,
+   ex: `<p>You save a link to a site that's down:</p>
+<pre>POST /api/bookmarks  → 201, status: pending
+worker: fetch fails  → retry with backoff
+after max attempts   → status: failed</pre>
+<p><b>You get 201 right away, status pending.</b> <i>Why:</i> the save is two inserts in one transaction; the fetch happens later.</p>
+<p><b>The worker retries with backoff, then marks it failed.</b> <i>Why:</i> sites come back, and backoff avoids hammering one that's struggling.</p>
+<p><b>The bookmark still works.</b> <i>Why:</i> enrichment only adds data (title, author, links). The URL alone is enough to list and search it. "Re-run enrichment" queues the job again (FR-A10).</p>` },
+ { t: 'Save a linked page, keep every link',
+   c: 'A page that other bookmarks link to already has an id. Saving it changes only its kind, so the existing links become backlinks without rewriting a single row.',
+   why: `<p>Links to pages you haven't saved are still useful: they show what your saved pages cite (FR-A4).</p><p>If every node shares one id space, saving such a page later is a one-row change. Without that, you'd have to find and rewrite every edge that pointed at it.</p>`,
+   ex: `<pre><span class="c">-- wal.dev/intro is url_ref #4217,</span>
+<span class="c">-- linked from #877 and #1021</span>
+UPDATE entity SET kind = 'bookmark'
+  WHERE id = 4217;
+INSERT INTO bookmark (id, url, …)
+  VALUES (4217, 'https://wal.dev/intro', …);
+DELETE FROM url_ref WHERE id = 4217;
+<span class="c">-- edges 877→4217 and 1021→4217 untouched</span></pre>
+<p><b>UPDATE entity</b> keeps id 4217. <i>Why:</i> every edge already points at that id, so nothing else has to change.</p>
+<p><b>INSERT bookmark, DELETE url_ref.</b> <i>Why:</i> the page now needs bookmark fields (title, read state) instead of just a URL.</p>
+<p><b>Edges untouched.</b> <i>Why it matters:</i> backlinks for #4217 return both bookmarks immediately. With separate id spaces you'd have to find and rewrite every edge.</p>` },
+ { t: 'Fix these on the way',
+   c: 'Found while checking facts for the ADR. One breaks the next Postgres upgrade, two are rules for the queries, one breaks the dev setup.',
+   why: `<p>None of these change the decision. But Phase 1 PR 1 edits the same files (compose, images, schema), so it's the cheapest place to fix them.</p>`,
+   ex: `<p><b>Bump the image to <code>postgres:18</code> without moving the mount, and the container won't start.</b> <i>Why:</i> 18 moved its data directory to <code>/var/lib/postgresql/18/docker</code>. Its entrypoint finds the old mount and exits rather than quietly starting an empty database:</p>
+<pre>Error: in 18+, these Docker images are configured
+to store database data in a …</pre>
+<p><b>Fix: mount the volume at <code>/var/lib/postgresql</code>.</b> <i>Why:</i> that's the volume root in the 18 images. Old data needs a dump and restore; NFR-1 lets the new version start empty.</p>` },
+ { t: 'Decision: Postgres',
+   c: 'Status is Proposed. Once it\'s accepted, Phase 1 starts with the schema PR.',
+   why: `<p>An accepted ADR fixes the storage question, so the Phase 1 PRs can be reviewed on their own merits without re-arguing the engine choice each time.</p>`,
+   ex: `<p>What you'd review in Phase 1, PR 1:</p>
+<p><b>New tables</b> (entity, edge, bookmark, tag, domain, url_ref). <i>Why first:</i> every later PR builds on them.</p>
+<p><b>EF Core migrations instead of <code>EnsureCreated()</code>.</b> <i>Why:</i> EnsureCreated can't change a schema that already exists, and this one will change often.</p>
+<p><b>Image moves to <code>pgvector/pgvector:pg18</code>, with the volume fix.</b> <i>Why now:</i> it's the same files, and pgvector is needed for embeddings in Phase 2 anyway.</p>
+<p><b>Today's features keep working.</b> <i>Why:</i> NFR-1 requires list, add, mark read, delete, sort and search to survive the rewrite.</p>` },
+];
+
+/* ---------- S1 graph ---------- */
+(() => {
+  const N = {
+    b: [730, 270, 'BOOKMARK', 'pg internals', 1], b2: [730, 110, 'BOOKMARK', 'MVCC explained', 1],
+    u: [580, 175, 'URL', 'wal.dev/intro'], t: [880, 180, 'TAG', 'postgres'],
+    d: [880, 380, 'DOMAIN', 'example.org'], a: [580, 395, 'AUTHOR', 'J. Doe'],
+  };
+  const E = [['b', 'b2'], ['b', 'u'], ['b', 't'], ['b', 'd'], ['b', 'a'], ['b2', 'u']];
+  const ge = document.getElementById('g1edges'), gn = document.getElementById('g1nodes');
+  E.forEach(([s, d], i) => el('path', { class: 'edge draw', pathLength: 1, d: `M${N[s][0]} ${N[s][1]} L${N[d][0]} ${N[d][1]}`, style: `--d:${1.9 + i * .15}s` }, ge));
+  Object.values(N).forEach((n, i) => {
+    const g = el('g', { class: 'zoom', style: `--d:${1.2 + i * .12}s` }, gn);
+    const w = n[4] ? 150 : 120;
+    el('rect', { class: 'box' + (n[4] ? ' bm' : ''), x: n[0] - w / 2, y: n[1] - 26, width: w, height: 52, rx: 8 }, g);
+    txt(n[2], { x: n[0], y: n[1] - 5, 'text-anchor': 'middle', class: 'k', style: 'font-size:11px' }, g);
+    txt(n[3], { x: n[0], y: n[1] + 15, 'text-anchor': 'middle', style: 'font-size:14px' }, g);
+  });
+})();
+
+/* ---------- S3 chart ---------- */
+(() => {
+  const g = document.getElementById('chart');
+  const data = [['backlinks', 'Backlinks', .1], ['tag-filter', 'Filter by tag tree', .7], ['hop2', 'Neighbourhood, 2 hops', 1.3],
+    ['related', 'Related bookmarks', 1.6], ['hop3', 'Neighbourhood, 3 hops', 18.6], ['path', 'Path, up to 4 hops', 46], ['queue', 'Reading queue', 324, 9.2]];
+  const L = 300, W = 960, R = 150, lo = Math.log10(.05), hi = Math.log10(1000);
+  const x = v => L + (Math.log10(v) - lo) / (hi - lo) * (W - L - R);
+  const top = 112, step = 54, by = top + data.length * step - 14;
+  [.1, 1, 10, 100, 1000].forEach(t => {
+    el('line', { x1: x(t), x2: x(t), y1: 84, y2: by, class: 'ax' }, g);
+    txt((t < 1 ? t : t.toLocaleString()) + ' ms', { x: x(t), y: 74, 'text-anchor': 'middle', class: 'tick' }, g);
+  });
+  data.forEach(([ref, n, v, after], i) => {
+    const cy = top + i * step + 12, d = (.2 + i * .18) + 's';
+    const row = el('g', { 'data-ref': ref, 'data-label': `benchmark row: ${n}` }, g);
+    el('rect', { x: 20, y: cy - 22, width: W - 40, height: 44, class: 'rowbg' }, row);
+    txt(n, { x: L - 18, y: cy + 6, 'text-anchor': 'end', class: 'name pop', style: `--d:${d}` }, row);
+    const w = x(v) - x(.05), cls = v >= 100 ? 'crit' : v >= 30 ? 'warn' : 'ok';
+    const r = el('rect', { x: x(.05), y: cy - 12, width: w, height: 24, rx: 3, class: `bar ${cls}${after ? ' q' : ''}`, style: `--d:${d}` }, row);
+    if (after) r.style.setProperty('--r', ((x(after) - x(.05)) / w).toFixed(4));
+    const vx = W - R + 18;
+    if (after) {
+      txt(`${v} ms`, { x: vx, y: cy + 6, class: 'val pop', style: `--d:${d}` }, el('g', { class: 's4A' }, row));
+      txt(`${after} ms`, { x: vx, y: cy + 6, class: 'val s4B', style: 'fill:var(--green)!important' }, row);
+      const tag = el('g', { class: 'f4in' }, row);
+      el('rect', { x: x(1.2) - 30, y: cy + 22, width: 330, height: 34, rx: 17, fill: '#123128', stroke: 'var(--green)' }, tag);
+      txt('30 reads, popular tags discounted', { x: x(1.2) + 135, y: cy + 45, 'text-anchor': 'middle', style: 'font:500 15px var(--f-body);fill:var(--green)' }, tag);
+    } else txt(`${v} ms`, { x: vx, y: cy + 6, class: 'val pop', style: `--d:${d}` }, row);
+  });
+  const bg = el('g', { 'data-ref': 'budget', 'data-label': 'the 300 ms budget line' }, g);
+  el('line', { x1: x(300), x2: x(300), y1: 56, y2: by, class: 'hitline' }, bg);
+  el('line', { x1: x(300), x2: x(300), y1: 56, y2: by, class: 'budget pop', style: '--d:1.6s' }, bg);
+  txt('300 ms budget', { x: x(300), y: 46, 'text-anchor': 'middle', class: 'pop', style: '--d:1.6s;font:500 14px var(--f-mono);fill:var(--coral)' }, bg);
+})();
+
+/* ---------- S3 fan-out: where the queue's time goes ---------- */
+(() => {
+  const g = document.getElementById('fan');
+  const t = (s, a, p) => txt(s, a, p);
+  const head = el('g', { class: 'fi', style: '--d:0s' }, g);
+  t("WHERE THE QUEUE'S 324 MS GOES", { x: 480, y: 58, 'text-anchor': 'middle', class: 'k n2', style: 'font-size:15px' }, head);
+  t('AFTER THE FIX: 9 MS', { x: 480, y: 58, 'text-anchor': 'middle', class: 'k n3', style: 'font-size:15px;fill:var(--green)!important' }, head);
+  const cols = [
+    ['reads', 'RECENT READS', '486', '30', 'last 7 days', 'only the 30 most recent', 'recent reads (seeds)'],
+    ['tags', 'THEIR TAGS + TOPICS', '3,134', '153', 'about 6 per read', 'popular ones skipped', 'their tags, topics and authors'],
+    ['rows', 'ROWS TO SCORE', '687,956', '8,509', 'one per shared tag × bookmark', '1.2% of before', 'rows to score'],
+  ];
+  const cx = [170, 480, 790], bw = 250, by = 86, bh = 128;
+  cols.forEach((c, i) => {
+    const gg = el('g', { class: 'fi', style: `--d:${.3 + i * .7}s`, 'data-ref': c[0], 'data-label': `fan-out: ${c[6]}` }, g);
+    el('rect', { class: 'fbox', x: cx[i] - bw / 2, y: by, width: bw, height: bh, rx: 10 }, gg);
+    t(c[1], { x: cx[i], y: by + 28, 'text-anchor': 'middle', class: 'k', style: 'font-size:12px' }, gg);
+    t(c[2], { x: cx[i], y: by + 78, 'text-anchor': 'middle', class: 'fnum n2' }, gg);
+    t(c[3], { x: cx[i], y: by + 78, 'text-anchor': 'middle', class: 'fnum n3', style: 'fill:var(--green)!important' }, gg);
+    t(c[4], { x: cx[i], y: by + 108, 'text-anchor': 'middle', class: 'fsub n2' }, gg);
+    t(c[5], { x: cx[i], y: by + 108, 'text-anchor': 'middle', class: 'fsub n3' }, gg);
+    if (i) {
+      const ag = el('g', { class: 'fi', style: `--d:${.1 + i * .7}s` }, g);
+      el('path', { d: `M${cx[i - 1] + bw / 2 + 6} ${by + bh / 2} H${cx[i] - bw / 2 - 8}`, stroke: 'var(--muted)', 'stroke-width': 2, 'marker-end': 'url(#ar)' }, ag);
+      t('×', { x: (cx[i - 1] + cx[i]) / 2, y: by + bh / 2 - 10, 'text-anchor': 'middle', style: 'font:700 20px var(--f-display);fill:var(--muted)' }, ag);
+    }
+  });
+  // stacked bar of the 687,956 rows by source
+  const X0 = 110, W = 740, Y = 270, H = 40, total = 687956;
+  const segs = [
+    ['hub', 249648, 'var(--coral)', '1 tag on 2,230 bookmarks', '249,648 rows'],
+    ['topic-hub', 145520, 'var(--amber)', '1 topic on 1,713', '145,520 rows'],
+    ['rest', total - 249648 - 145520, '#3b5372', 'all other tags, topics, authors', '292,788 rows'],
+  ];
+  const bar = el('g', { class: 'fi', style: '--d:2.4s' }, g);
+  t('WHERE THE ROWS COME FROM', { x: X0, y: Y - 14, class: 'k', style: 'font-size:12px' }, bar);
+  const scaled = el('g', { class: 'fbar', style: `--k:${(8509 / total).toFixed(4)}` }, bar);
+  let xx = X0;
+  segs.forEach(([ref, n, col, l1, l2]) => {
+    const w = W * n / total;
+    const sg = el('g', { 'data-ref': ref, 'data-label': `rows from ${l1}` }, bar);
+    el('rect', { x: xx, y: Y, width: w - 2, height: H, class: 'fseg', fill: col }, scaled);
+    el('rect', { x: xx, y: Y, width: w - 2, height: H + 60, fill: 'transparent' }, sg);
+    t(l1, { x: xx + 4, y: Y + H + 24, class: 'n2', style: 'font-size:15px' }, sg);
+    t(l2, { x: xx + 4, y: Y + H + 46, class: 'n2', style: 'font:500 14px var(--f-mono);fill:var(--muted)' }, sg);
+    xx += w;
+  });
+  t('8,509 rows left: popular tags skipped, the rest weighted by rarity', { x: X0 + 20, y: Y + 26, class: 'n3', style: 'font-size:16px;fill:var(--green)' }, bar);
+  const f = el('g', { class: 'fi', style: '--d:3.2s', 'data-ref': 'formula', 'data-label': 'the cost formula' }, g);
+  el('rect', { x: X0, y: 420, width: W, height: 70, fill: 'transparent' }, f);
+  t('rows ≈ reads × tags per read × bookmarks per tag', { x: 480, y: 448, 'text-anchor': 'middle', style: 'font:500 19px var(--f-mono)' }, f);
+  t('The fix shrinks the first factor and drops the biggest values of the last one.', { x: 480, y: 478, 'text-anchor': 'middle', class: 'n3', style: 'font-size:16px;fill:var(--muted)' }, f);
+  t('Popular tags make the most rows and say the least about relatedness.', { x: 480, y: 478, 'text-anchor': 'middle', class: 'n2', style: 'font-size:16px;fill:var(--muted)' }, f);
+})();
+
+/* ---------- S4 pipeline ---------- */
+(() => {
+  const g = document.getElementById('pipe');
+  const steps = [['post', 'POST', 'bookmark + job', 'api'], ['fetch', 'Fetch', 'SSRF guard'], ['normalize', 'Normalize', 'dedupe URLs'], ['extract', 'Extract', 'title, author'], ['resolve', 'Resolve', 'links']];
+  const w = 140, gap = 40, y = 200, h = 84, x0 = 50, cx = i => x0 + i * (w + gap);
+  steps.forEach((s, i) => {
+    if (i) el('path', { class: 'edge draw', pathLength: 1, d: `M${cx(i) - gap + 4} ${y + h / 2} H${cx(i) - 6}`, 'marker-end': 'url(#ar)', style: `--d:${.3 + i * .2}s` }, g);
+    const gg = el('g', { class: 'pop', style: `--d:${.1 + i * .2}s`, 'data-ref': s[0], 'data-label': `pipeline step: ${s[1]}` }, g);
+    el('rect', { class: 'step' + (s[3] ? ' api' : ''), x: cx(i), y, width: w, height: h, rx: 10 }, gg);
+    txt(s[1], { x: cx(i) + w / 2, y: y + 38, 'text-anchor': 'middle', style: 'font:700 20px var(--f-display)' }, gg);
+    txt(s[2], { x: cx(i) + w / 2, y: y + 62, 'text-anchor': 'middle', class: 'k', style: 'font-size:12px' }, gg);
+  });
+  const ok = el('g', { 'data-ref': '201', 'data-label': 'the 201 reply' }, g);
+  const okz = el('g', { class: 'zoom', style: '--d:.6s' }, ok);
+  el('rect', { x: cx(0) + 10, y: 110, width: 120, height: 48, rx: 24, class: 'ok201' }, okz);
+  txt('201', { x: cx(0) + 70, y: 142, 'text-anchor': 'middle', style: 'font:800 22px var(--f-display);fill:var(--bg)' }, okz);
+  txt('reply sent here', { x: cx(0) + 150, y: 140, class: 'pop', style: '--d:.8s;font-size:16px;fill:var(--green)' }, ok);
+  el('path', { class: 'draw', pathLength: 1, d: `M${cx(0) + 70} 160 V196`, stroke: 'var(--green)', 'stroke-width': 3, style: '--d:.7s' }, g);
+  const wk = el('g', { 'data-ref': 'worker', 'data-label': 'the background worker' }, g);
+  el('rect', { x: cx(1), y: y + h + 8, width: cx(4) + w - cx(1), height: 40, fill: 'transparent' }, wk);
+  txt('BACKGROUND WORKER  ·  queue table, SKIP LOCKED', { x: cx(1), y: y + h + 36, class: 'k pop', style: '--d:1.1s' }, wk);
+  el('path', { class: 'draw', pathLength: 1, d: `M${cx(1)} ${y + h + 14} H${cx(4) + w}`, stroke: 'var(--line)', 'stroke-width': 2, style: '--d:1.1s' }, wk);
+  const p2 = el('g', { 'data-ref': 'phase2', 'data-label': 'Phase 2 steps (topics, embeddings)' }, g);
+  [['Topics', 'LLM'], ['Embeddings', 'pgvector']].forEach((s, i) => {
+    const gg = el('g', { class: 'pop', style: `--d:${1.4 + i * .2}s` }, p2);
+    const xx = cx(2) + i * (w + gap) + 40;
+    el('rect', { class: 'step p2s', x: xx, y: 390, width: w + 20, height: 70, rx: 10 }, gg);
+    txt(s[0], { x: xx + (w + 20) / 2, y: 424, 'text-anchor': 'middle', style: 'font:700 19px var(--f-display);fill:var(--muted)' }, gg);
+    txt(s[1], { x: xx + (w + 20) / 2, y: 446, 'text-anchor': 'middle', class: 'k', style: 'font-size:12px' }, gg);
+  });
+  txt('PHASE 2', { x: cx(2) - 30, y: 430, 'text-anchor': 'end', class: 'k pop', style: '--d:1.4s' }, p2);
+  const tok = el('circle', { r: 9, class: 'token', cx: 0, cy: 0, opacity: 0, 'pointer-events': 'none' }, g);
+  const mot = el('animateMotion', { dur: '3.2s', begin: 'indefinite', fill: 'freeze', path: `M${cx(0) + w / 2} ${y + h / 2} H${cx(4) + w / 2}` }, tok);
+  window.__runToken = () => { if (reduce) return; tok.setAttribute('opacity', 1); try { mot.beginElement(); } catch (e) {} timers.push(setTimeout(() => tok.setAttribute('opacity', 0), 3400)); };
+})();
+
+/* ---------- player ---------- */
+const scenes = [...document.querySelectorAll('.scene')];
+const DUR = [7000, 7500, 20000, 6500, 7500, 6500, 7000];
+// per scene: [delay ms, class added to the scene]
+const PH = [[], [[3600, 'p2']], [[3800, 'f2'], [10500, 'f3'], [16000, 'f4']], [], [[3200, 'p2']], [], []];
+const PHASES = ['p2', 'f2', 'f3', 'f4'];
+const dots = document.getElementById('dots');
+scenes.forEach((_, i) => { const b = document.createElement('button'); b.setAttribute('aria-label', `Scene ${i + 1}: ${SC[i].t}`); b.onclick = () => go(i); dots.appendChild(b); });
+let cur = 0, auto = false, timers = [], picked = null;
+const clear = () => { timers.forEach(clearTimeout); timers = []; };
+function countUp() {
+  document.querySelectorAll('#sc7 .num').forEach(n => {
+    const to = +n.dataset.to, from = +(n.dataset.from || 0), suf = n.dataset.suffix || '';
+    if (reduce) { n.textContent = to + suf; return; }
+    const t0 = performance.now() + 600, dur = 900;
+    const tick = now => { const k = Math.min(1, Math.max(0, (now - t0) / dur)); n.textContent = Math.round(from + (to - from) * k) + suf; if (k < 1) requestAnimationFrame(tick); };
+    n.textContent = from + suf; requestAnimationFrame(tick);
+  });
+}
+function go(i, keepPick) {
+  clear();
+  i = (i + scenes.length) % scenes.length;
+  // restart animations when re-entering the same scene
+  if (i === cur && scenes[i].classList.contains('on')) { scenes[i].classList.remove('on', ...PHASES); void scenes[i].getBoundingClientRect(); }
+  scenes.forEach((s, j) => { s.classList.toggle('on', j === i); if (j !== i) s.classList.remove(...PHASES); });
+  cur = i;
+  const sc = SC[i];
+  document.getElementById('capTitle').textContent = sc.t;
+  document.getElementById('capText').textContent = sc.c;
+  document.getElementById('why').innerHTML = sc.why;
+  document.getElementById('example').innerHTML = sc.ex;
+  document.getElementById('count').textContent = `S${i + 1} · ${i + 1} / ${scenes.length}`;
+  [...dots.children].forEach((d, j) => { d.classList.toggle('cur', j === i); d.classList.toggle('done', j < i); });
+  PH[i].forEach(([ms, cls]) => timers.push(setTimeout(() => scenes[i].classList.add(cls), ms)));
+  if (i === 3) timers.push(setTimeout(window.__runToken, 1200));
+  if (i === 6) countUp();
+  if (auto) timers.push(setTimeout(() => go(i + 1), DUR[i] + 4000));
+  if (!keepPick) { setPick(null); document.getElementById('out').hidden = true; document.getElementById('status').textContent = ''; }
+}
+
+/* ---------- references ---------- */
+const chip = document.getElementById('refChip'), clearBtn = document.getElementById('clearRef');
+function refId() { return `S${cur + 1}` + (picked ? '.' + picked.dataset.ref : ''); }
+function refHash() { return `s${cur + 1}` + (picked ? '-' + picked.dataset.ref : ''); }
+function setPick(node) {
+  document.querySelectorAll('.picked').forEach(n => n.classList.remove('picked'));
+  picked = node;
+  if (node) node.classList.add('picked');
+  chip.textContent = picked ? `${refId()} · ${picked.dataset.label}` : `${refId()} · whole scene: ${SC[cur].t}`;
+  clearBtn.hidden = !picked;
+  try { history.replaceState(null, '', '#' + refHash()); } catch (e) {}
+}
+document.getElementById('s').addEventListener('click', e => {
+  const n = e.target.closest('[data-ref]');
+  if (!n || !scenes[cur].contains(n)) return;
+  if (auto) toggleAuto(false);
+  setPick(n === picked ? null : n);
+});
+document.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => {
+  const card = b.closest('[data-ref]');
+  if (auto) toggleAuto(false);
+  setPick(card === picked ? null : card);
+}));
+clearBtn.onclick = () => setPick(null);
+
+function questionText() {
+  const base = location.origin + location.pathname;
+  const q = document.getElementById('q').value.trim() || '(question)';
+  const what = picked ? `${picked.dataset.label}, in "${SC[cur].t}"` : `scene "${SC[cur].t}"`;
+  return `**ADR 0001 · ${refId()}** (${what})\n${base}#${refHash()}\n\n${q}`;
+}
+document.getElementById('copyQ').addEventListener('click', () => {
+  const t = questionText(), out = document.getElementById('out'), st = document.getElementById('status');
+  out.value = t;
+  const fallback = () => { out.hidden = false; out.focus(); out.select(); st.textContent = 'Copy the selected text.'; };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(() => { out.hidden = false; st.textContent = 'Copied. Paste it in chat or as a comment on PR #16.'; }, fallback);
+  } else fallback();
+});
+
+/* ---------- controls ---------- */
+const autoBtn = document.getElementById('auto');
+function toggleAuto(v) { auto = v; autoBtn.setAttribute('aria-pressed', String(v)); go(cur, true); }
+autoBtn.onclick = () => toggleAuto(!auto);
+document.getElementById('prev').onclick = () => go(cur - 1);
+document.getElementById('next').onclick = () => go(cur + 1);
+document.getElementById('replay').onclick = () => go(cur, true);
+document.addEventListener('keydown', e => {
+  if (e.target.closest('textarea')) return;
+  if (e.key === 'ArrowRight') go(cur + 1); else if (e.key === 'ArrowLeft') go(cur - 1);
+});
+
+/* ---------- deep links: #s3 or #s3-queue ---------- */
+function fromHash() {
+  const m = /^#s(\d+)(?:-([a-z0-9-]+))?$/i.exec(location.hash);
+  if (!m) { go(0); return; }
+  const i = Math.min(Math.max(+m[1] - 1, 0), scenes.length - 1);
+  cur = -1; go(i);
+  if (m[2]) {
+    const n = scenes[i].querySelector(`[data-ref="${m[2]}"]`) || document.querySelector(`.explain [data-ref="${m[2]}"]`);
+    if (n) setPick(n);
+  }
+}
+fromHash();
+addEventListener('hashchange', () => { if (location.hash !== '#' + refHash()) fromHash(); });
+</script>
+</body>
+</html>

@@ -40,6 +40,21 @@
 18. Add ability to sort the list of bookmarks. Sorting should be possible in ascending and descending order for the following dimensions: - Create date - Alphabetical
 19. Add ability to search within the bookmarks
 20. Need to publish arm64 version of the docker image
+21. My github repo bookmarks manager has a new issue #15. Can you start working on it?
+22. I need some creating way to review this change, instead of a lot of text
+23. could you maybe create an animated infographic ?
+24. can this page with its animation render in github?
+25. Let's use github pages instead
+26. I want to be able to view these adr animations while reviewing PRs. Is there a simple way to get GH pages to show them as i am reviewing PRs?
+27. So option A creates a new repo for keeping these artifacts?
+28. Very smart. Yes, let's do this.
+29. excellent. Now, I need a way to reference parts of this animation to ask questions to you. Also, the "why" and "examples" are needed for comprehension
+30. (storybook ref S2) I dont understand the syntax for option A
+31. no. next. (storybook ref S3.queue) I dont quite understand how to evaluate the cost between these options and what is the work to be done that costs this time
+32. The why part is missing from the sub-parts of this explanation which makes comprehension difficult.
+33. Yes. Also, based on my questions, identify the tone and level of detailed explanation to add to the PR animation storybook. The storybook will become a skill that evolves as we review the PR and will be used across repositories
+34. No need to test yet. I will move the skill out in a different session. As I ask questions, use them as an opportunity to consider strong candidates to tweak the storybook and suggest the insight to update either the current slide or the entire storybook.
+35. Each answer does not need to force the insight. Inly consider insights with medium to high level of confidence. And yes, do both.
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)

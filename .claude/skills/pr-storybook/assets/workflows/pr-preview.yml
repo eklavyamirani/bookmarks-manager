@@ -1,0 +1,30 @@
+name: PR preview of docs
+
+# Publishes each PR's docs/ to gh-pages/pr-preview/pr-<N>/ and comments the link.
+# The preview is removed when the PR is closed or merged.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    paths: ["docs/**"]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    # Fork PRs get a read-only token and can't push to gh-pages.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: docs
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          qr-code: false
