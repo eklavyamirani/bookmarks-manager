@@ -56,7 +56,7 @@ nav.jump a{font:500 13px/1 var(--f-body);text-decoration:none;color:var(--fg);bo
 nav.jump a:hover,nav.jump a:focus-visible{border-color:var(--accent);color:var(--accent);outline:none}
 
 /* options matrix */
-table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:780px;font-size:14px}
+table.matrix{border-collapse:separate;border-spacing:0;width:100%;min-width:920px;font-size:14px}
 .matrix th,.matrix td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .matrix thead th{font:600 14px/1.3 var(--f-body);border-bottom:2px solid var(--line)}
 .matrix thead th small{display:block;font-weight:400;color:var(--muted);font-size:12px}
@@ -178,7 +178,7 @@ ol.decisions{list-style:none;margin:0;padding:0;display:grid;gap:0}
 </section>
 
 <section class="panel" id="options">
-  <header><span class="eyebrow">The choice</span><h2>Four ways to store the graph</h2>
+  <header><span class="eyebrow">The choice</span><h2>Five ways to store the graph</h2>
     <p class="muted">Facts checked against upstream repos, Docker Hub and NuGet on 2026-11-13 and 2026-11-15.</p></header>
   <div class="scroll"><table class="matrix" id="matrix"></table></div>
   <div class="legend">
@@ -262,16 +262,18 @@ const cols = [
   ['B', 'Neo4j / Memgraph', 'Separate graph database'],
   ['C', 'Relational graph', 'Edge table + recursive SQL', true],
   ['D', 'SQLite', 'Embedded file · runner-up'],
+  ['E', 'Neo4j only', 'Graph DB as the only store'],
 ];
 const rows = [
-  ['Datastores', ['good', '1'], ['bad', '2, plus syncing between them'], ['good', '1'], ['good', '1 file, no container']],
-  ['Query language', ['meh', 'Cypher wrapped in SQL, returns agtype'], ['good', 'Cypher'], ['meh', 'Recursive SQL'], ['meh', 'Recursive SQL; one query per hop']],
-  ['.NET support', ['bad', 'Community plugins only, no EF Core'], ['good', 'Official driver'], ['good', 'EF Core + Npgsql'], ['meh', 'EF Core; schema changes rebuild tables']],
-  ['Graph algorithms', ['bad', 'None built in'], ['good', 'Built in (GDS, MAGE)'], ['meh', 'In-process; milliseconds at 10k'], ['meh', 'Same as C']],
-  ['Reading queue (measured)', ['meh', 'Not measured'], ['meh', 'Not measured'], ['good', '11 ms'], ['meh', '41–48 ms']],
-  ['Vectors (FR-A6)', ['bad', 'Needs a custom image with pgvector'], ['meh', 'Separate vector store'], ['good', 'Official pgvector:pg18 image'], ['bad', 'sqlite-vec is pre-1.0']],
-  ['amd64 + arm64', ['good', 'Official AGE images'], ['meh', 'Not checked'], ['good', 'Yes'], ['good', 'Yes']],
-  ['License', ['good', 'Apache 2.0'], ['meh', 'GPLv3 (Neo4j) / BSL (Memgraph)'], ['good', 'PostgreSQL'], ['good', 'Public domain']],
+  ['Datastores', ['good', '1'], ['bad', '2, plus syncing between them'], ['good', '1'], ['good', '1 file, no container'], ['good', '1 (a JVM service)']],
+  ['Query language', ['meh', 'Cypher wrapped in SQL, returns agtype'], ['good', 'Cypher'], ['meh', 'Recursive SQL'], ['meh', 'Recursive SQL; one query per hop'], ['good', 'Cypher for everything']],
+  ['.NET support', ['bad', 'Community plugins only, no EF Core'], ['good', 'Official driver'], ['good', 'EF Core + Npgsql'], ['meh', 'EF Core; schema changes rebuild tables'], ['meh', 'Official driver; no EF Core']],
+  ['Graph algorithms', ['bad', 'None built in'], ['good', 'Built in (GDS, MAGE)'], ['meh', 'In-process; milliseconds at 10k'], ['meh', 'Same as C'], ['good', 'GDS plugin']],
+  ['Reading queue (measured)', ['meh', 'Not measured'], ['meh', 'Not measured'], ['good', '9–11 ms'], ['meh', '38–48 ms'], ['good', '14 ms']],
+  ['Memory (measured)', ['meh', 'Not measured'], ['bad', 'Postgres + a JVM'], ['good', '≈30 MB'], ['good', 'Inside the app'], ['bad', '≈1.46 GB as configured']],
+  ['Vectors (FR-A6)', ['bad', 'Needs a custom image with pgvector'], ['meh', 'Separate vector store'], ['good', 'Official pgvector:pg18 image'], ['bad', 'sqlite-vec is pre-1.0'], ['good', 'HNSW vector index']],
+  ['amd64 + arm64', ['good', 'Official AGE images'], ['meh', 'Not checked'], ['good', 'Yes'], ['good', 'Yes'], ['good', 'Official images']],
+  ['License', ['good', 'Apache 2.0'], ['meh', 'GPLv3 (Neo4j) / BSL (Memgraph)'], ['good', 'PostgreSQL'], ['good', 'Public domain'], ['meh', 'GPLv3']],
 ];
 const m = $('#matrix');
 m.innerHTML = '<thead><tr><th></th>' + cols.map(c => `<th class="${c[3] ? 'pick' : ''}">${c[0]}. ${c[1]}<small>${c[2]}${c[3] ? ' · proposed' : ''}</small></th>`).join('') + '</tr></thead><tbody>' +
@@ -429,7 +431,7 @@ $('#pipe').innerHTML = steps.map((s, i) => {
 
 /* ---------- verdicts ---------- */
 const decisions = [
-  ['storage', 'Store the graph as plain Postgres tables (option C)', 'Not Apache AGE or Neo4j/Memgraph. SQLite (D) is the runner-up. AGE can still be added later.'],
+  ['storage', 'Store the graph as plain Postgres tables (option C)', 'Not AGE or Neo4j/Memgraph. SQLite (D) is the runner-up; Neo4j-only (E) is viable but uses about 50× the memory. AGE can still be added later.'],
   ['sor', 'Postgres stays the only store and the system of record', 'No derived graph index to keep in sync.'],
   ['edges', 'P1 edge types: tagged, child_of, on_domain, links_to, authored_by', 'Dedupe aliases go in a table, not edges.'],
   ['entity', 'One shared id space for every node kind', 'Lets a linked URL become a bookmark without rewriting edges.'],
