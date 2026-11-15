@@ -58,6 +58,8 @@
 36. (storybook ref S4) What is the SSRF guard?
 37. Okay, so this brings up an interesting requirement. I don't know if I necessarily want the metadata extraction to happen on the server, but I would like to add some notes when I save bookmarks because I forget why exactly I saved it. [...] (n8n sidecar via API, bookmark page with notes, short URL, book recommendations)
 38. 1. I agree that I would need to tighten n8n. But that makes this app not need to worry about it. Ultimately n8n or any other app can query for the links and then call the APIs to enrich the metadata. 2. Let's not do short url for now. The ability to share with others needs a separate design of its own. 3. We should enforce url. Books will have a link to goodreads.
+39. yes, post it. Also, we should re evaluate the choice of database with these modified requirements
+40. yes, add SQLite as option D. If I am flexible to move away from the dotnet backend, does the decision matrix change?
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
