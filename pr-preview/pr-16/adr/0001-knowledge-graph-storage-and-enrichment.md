@@ -20,17 +20,19 @@ Stack today: ASP.NET Core on .NET 9, EF Core 9 + Npgsql, Postgres (`postgres:18b
 
 ## Options
 
-| | A. Apache AGE (in Postgres) | B. Neo4j / Memgraph (alongside Postgres) | C. Relational graph in Postgres (edge table + recursive SQL + pgvector) |
-|---|---|---|---|
-| Datastores | 1 | 2 (Postgres + graph) and a sync path between them | 1 |
-| Query language | openCypher, wrapped in SQL: `cypher('g', $$…$$) AS (v agtype)` | Cypher | SQL (recursive CTEs, `LATERAL`) |
-| .NET support | No official driver. Community Npgsql plugins only (e.g. `Konnektr.Npgsql.Age`, `ApacheAGE`). No EF Core. Results come back as `agtype`. | Official Neo4j .NET driver. Memgraph uses the Bolt protocol. | EF Core for CRUD, raw SQL for graph queries. All first-party. |
-| Graph algorithms | None built in. AGE is a query layer. | Built in: Neo4j GDS, Memgraph MAGE | None built in. Run them in-process; at 10k nodes that takes milliseconds. |
-| Vectors (FR-A6) | Needs pgvector too. No published image has both, so it needs a custom multi-arch image. | Needs a vector store; still Postgres, or the graph DB's own vector index | `pgvector/pgvector:pg18`: official, amd64 + arm64 |
-| License | Apache 2.0 | Neo4j Community: GPLv3. Memgraph Community: BSL. | PostgreSQL license |
-| PG18 / arm64 | `release_PG18_1.8.0` image, amd64 + arm64 | Not checked | Yes |
+| | A. Apache AGE (in Postgres) | B. Neo4j / Memgraph (alongside Postgres) | C. Relational graph in Postgres (edge table + recursive SQL + pgvector) | D. Relational graph in SQLite (embedded file) |
+|---|---|---|---|---|
+| Datastores | 1 | 2 (Postgres + graph) and a sync path between them | 1 | 1, embedded: no database container |
+| Query language | openCypher, wrapped in SQL: `cypher('g', $$…$$) AS (v agtype)` | Cypher | SQL (recursive CTEs, `LATERAL`) | SQL (recursive CTEs). No `LATERAL`, so a per-hop fan-out cap means one query per hop |
+| .NET support | No official driver. Community Npgsql plugins only (e.g. `Konnektr.Npgsql.Age`, `ApacheAGE`). No EF Core. Results come back as `agtype`. | Official Neo4j .NET driver. Memgraph uses the Bolt protocol. | EF Core for CRUD, raw SQL for graph queries. All first-party. | First-party EF Core provider. Many schema changes rebuild the table; `DateTimeOffset` can't be sorted in SQL. |
+| Graph algorithms | None built in. AGE is a query layer. | Built in: Neo4j GDS, Memgraph MAGE | None built in. Run them in-process; at 10k nodes that takes milliseconds. | Same as C |
+| Vectors (FR-A6) | Needs pgvector too. No published image has both, so it needs a custom multi-arch image. | Needs a vector store; still Postgres, or the graph DB's own vector index | `pgvector/pgvector:pg18`: official, amd64 + arm64 | `sqlite-vec`, which is pre-1.0 (its README: "expect breaking changes") |
+| License | Apache 2.0 | Neo4j Community: GPLv3. Memgraph Community: BSL. | PostgreSQL license | Public domain |
+| PG18 / arm64 | `release_PG18_1.8.0` image, amd64 + arm64 | Not checked | Yes | Yes (a library, not an image) |
 
-Facts checked on 2026-11-13: AGE releases and Docker Hub tags, pgvector README and Docker Hub tags, the Neo4j and Memgraph repo READMEs, and NuGet search for AGE clients.
+Facts checked on 2026-11-13: AGE releases and Docker Hub tags, pgvector README and Docker Hub tags, the Neo4j and Memgraph repo READMEs, and NuGet search for AGE clients. Added 2026-11-15: the `sqlite-vec` README and the EF Core SQLite provider limitations page.
+
+D was added after enrichment moved out of the app. With no in-app job queue, and with external clients using the API instead of the database, nothing needs a database server any more, so an embedded database became a real candidate.
 
 ## Measurement
 
@@ -88,6 +90,22 @@ Variants, from a separate run (timings vary about 10–40% between runs on this 
 - **Ranking:** A and B share 10 of their top 20. B and D share none, so popular tags were deciding B's ranking. Synthetic data can't say which ranking is better; that needs real bookmarks.
 - **Rule for FR-D1:** cap seeds **and** down-weight popular tags (variant D). It needs a per-tag bookmark count kept up to date. The queue PR (Phase 1, item 7) checks ranking quality against real data before choosing the cutoff and weighting.
 
+### Option D measured: SQLite
+
+The same data was exported from Postgres and loaded into SQLite 3.53.1, and both ran back to back on the same machine ([`0001-bench/sqlite/`](0001-bench/sqlite/)). p50 in ms:
+
+| Query | Postgres | SQLite | Why the gap |
+|---|---:|---:|---|
+| Backlinks | 0.1 | 0.0 | Index lookup in both |
+| Related | 2.3 | 3.0 | Same plan shape |
+| Neighbourhood, 2 hops | 2.3 | 2.9 | SQLite runs one query per hop (no `LATERAL`) |
+| Neighbourhood, 3 hops | 30 | 20 | Hop-by-hop avoids some duplicate work |
+| Filter by tag tree | 0.9 | 0.2 | After rewriting `EXISTS` as `IN`; with `EXISTS` it took 76 ms (a planner quirk, same results) |
+| Reading queue, the chosen rule (30 seeds, popular tags discounted) | 11 | 41–48 | SQLite joins with nested loops only; Postgres hashes the 8.5k rows. Forcing materialization didn't help. |
+| Reading queue, all 486 seeds (rejected) | 468 | 2,225 | Same reason, amplified |
+
+The VM was noisier in this run than in the earlier ones (Postgres's own queue numbers are higher), but the two engines ran back to back, so the comparison holds.
+
 Limitations: synthetic data, Postgres 16 rather than 18, x86 rather than arm64. A Raspberry Pi-class arm64 host will be slower by some constant factor, which the headroom above covers. AGE and Neo4j were not benchmarked; at this scale they don't need to be, because C already passes.
 
 ## Decision
@@ -98,13 +116,14 @@ Limitations: synthetic data, Postgres 16 rather than 18, x86 rather than arm64. 
 - Use pgvector for embeddings when FR-A6 lands (P2).
 - Graph algorithms for P3 (PageRank, community detection, bridges) run in-process in a background job. The results are written back as scores or cluster tables.
 
-Why not A or B:
+Why not A, B or D:
 
 - **The built-in algorithms argument for B** is weak at this scale. Every algorithm FR is P3, and on about 226k edges they run in milliseconds in memory. Against that, B means a second store, dual writes, and a JVM service (Neo4j) on an arm64 host.
 - **A's main benefit is Cypher ergonomics**, mostly for variable-length paths. The price: no official .NET driver, `agtype` plumbing, no EF Core, and a custom Postgres image to combine AGE with pgvector. A also adds no algorithms.
+- **D is the runner-up.** It removes a container and makes backup a file copy. The price: the one query near its budget (the reading queue) runs about 4× slower, which matters on a small arm64 host; similarity search would rest on a pre-1.0 extension; and EF Core migrations rebuild tables for many schema changes.
 - **C doesn't block A later.** AGE is a Postgres extension, so if path-heavy queries become painful in SQL it can be added over the same database.
 
-Revisit if: the edge count passes about 5M, P2/P3 queries turn into mostly variable-length pattern matching, or interactive graph visualization tooling becomes a requirement.
+Revisit if: the edge count passes about 5M, P2/P3 queries turn into mostly variable-length pattern matching, or interactive graph visualization tooling becomes a requirement. Switch to D if similarity search (FR-A6) leaves the app, or the host can't spare a database container.
 
 ### Answers to the open questions in #15
 
