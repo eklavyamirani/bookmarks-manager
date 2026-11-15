@@ -181,41 +181,50 @@ svg .picked{filter:drop-shadow(0 0 2px var(--amber)) drop-shadow(0 0 9px var(--a
     <!-- S2: options -->
     <g class="scene">
       <g class="pop" style="--d:0.1s" data-ref="age" data-label="option A, Apache AGE"><g class="p2fade">
-        <rect class="ocard" x="28" y="70" width="212" height="380" rx="12"/>
-        <text x="46" y="106" class="k">A</text><text x="46" y="138" style="font:700 19px var(--f-display)">Apache AGE</text>
-        <text x="46" y="186" style="font-size:16px">Cypher inside SQL</text>
-        <text x="46" y="220" style="font-size:16px">No .NET driver</text>
-        <text x="46" y="254" style="font-size:16px">No graph algorithms</text>
-        <text x="46" y="288" style="font-size:16px">Custom image</text>
-        <text x="46" y="322" style="font-size:16px;fill:var(--muted)">to add pgvector</text>
+        <rect class="ocard" x="20" y="70" width="172" height="380" rx="12"/>
+        <text x="36" y="104" class="k">A</text><text x="36" y="134" style="font:700 17px var(--f-display)">Apache AGE</text>
+        <text x="36" y="180" style="font-size:15px">Cypher in SQL</text>
+        <text x="36" y="212" style="font-size:15px">No .NET driver</text>
+        <text x="36" y="244" style="font-size:15px">No algorithms</text>
+        <text x="36" y="276" style="font-size:15px">Custom image</text>
       </g></g>
-      <g class="pop" style="--d:0.25s" data-ref="neo4j" data-label="option B, Neo4j / Memgraph"><g class="p2fade">
-        <rect class="ocard" x="260" y="70" width="212" height="380" rx="12"/>
-        <text x="278" y="106" class="k">B</text><text x="278" y="138" style="font:700 19px var(--f-display)">Neo4j / Memgraph</text>
-        <text x="278" y="186" style="font-size:16px">Second datastore</text>
-        <text x="278" y="220" style="font-size:16px;fill:var(--muted)">plus syncing</text>
-        <text x="278" y="254" style="font-size:16px">JVM on an arm64 box</text>
-        <text x="278" y="288" style="font-size:16px">GPLv3 / BSL</text>
+      <g class="pop" style="--d:0.2s" data-ref="neo4j" data-label="option B, Neo4j / Memgraph next to Postgres"><g class="p2fade">
+        <rect class="ocard" x="204" y="70" width="172" height="380" rx="12"/>
+        <text x="220" y="104" class="k">B</text><text x="220" y="134" style="font:700 17px var(--f-display)">Neo4j + Postgres</text>
+        <text x="220" y="180" style="font-size:15px">Two datastores</text>
+        <text x="220" y="212" style="font-size:15px">Sync between them</text>
+        <text x="220" y="244" style="font-size:15px">JVM on arm64</text>
+        <text x="220" y="276" style="font-size:15px">GPLv3 / BSL</text>
       </g></g>
-      <g class="pop" style="--d:0.4s" data-ref="postgres" data-label="option C, Postgres tables">
-        <rect class="ocard win" x="492" y="70" width="212" height="380" rx="12"/>
-        <text x="510" y="106" class="k">C</text><text x="510" y="138" style="font:700 19px var(--f-display)">Postgres tables</text>
-        <text x="510" y="186" style="font-size:16px">One datastore</text>
-        <text x="510" y="220" style="font-size:16px">EF Core + Npgsql</text>
-        <text x="510" y="254" style="font-size:16px">pgvector image</text>
-        <text x="510" y="288" style="font-size:16px">Queue: 11 ms</text>
-        <g class="late" style="--d:.3s"><rect x="526" y="380" width="144" height="40" rx="20" fill="var(--green)"/><text x="598" y="406" text-anchor="middle" class="stamp" style="fill:var(--bg);font-size:16px!important">PROPOSED</text></g>
+      <g class="pop" style="--d:0.3s" data-ref="postgres" data-label="option C, Postgres tables">
+        <rect class="ocard win" x="388" y="70" width="172" height="380" rx="12"/>
+        <text x="404" y="104" class="k">C</text><text x="404" y="134" style="font:700 17px var(--f-display)">Postgres tables</text>
+        <text x="404" y="180" style="font-size:15px">One datastore</text>
+        <text x="404" y="212" style="font-size:15px">EF Core + Npgsql</text>
+        <text x="404" y="244" style="font-size:15px">pgvector image</text>
+        <text x="404" y="276" style="font-size:15px">Queue: 9 ms</text>
+        <text x="404" y="308" style="font-size:15px">Memory: ~30 MB</text>
+        <g class="late" style="--d:0.3s"><rect x="402" y="384" width="144" height="38" rx="19" fill="var(--green)" stroke="var(--green)" stroke-width="2"/><text x="474.0" y="409" text-anchor="middle" class="stamp" style="fill:var(--bg);font-size:14px!important">PROPOSED</text></g>
       </g>
-      <g class="pop" style="--d:0.55s" data-ref="sqlite" data-label="option D, SQLite (runner-up)"><g class="p2fade">
-        <rect class="ocard" x="724" y="70" width="212" height="380" rx="12"/>
-        <text x="742" y="106" class="k">D</text><text x="742" y="138" style="font:700 19px var(--f-display)">SQLite</text>
-        <text x="742" y="186" style="font-size:16px">No DB container</text>
-        <text x="742" y="220" style="font-size:16px">Backup = copy a file</text>
-        <text x="742" y="254" style="font-size:16px">Queue: 41–48 ms</text>
-        <text x="742" y="288" style="font-size:16px">sqlite-vec is pre-1.0</text>
+      <g class="pop" style="--d:0.4s" data-ref="sqlite" data-label="option D, SQLite (runner-up)"><g class="p2fade">
+        <rect class="ocard" x="572" y="70" width="172" height="380" rx="12"/>
+        <text x="588" y="104" class="k">D</text><text x="588" y="134" style="font:700 17px var(--f-display)">SQLite</text>
+        <text x="588" y="180" style="font-size:15px">No DB container</text>
+        <text x="588" y="212" style="font-size:15px">Copy-file backup</text>
+        <text x="588" y="244" style="font-size:15px">Queue: 38 ms</text>
+        <text x="588" y="276" style="font-size:15px">Vectors pre-1.0</text>
       </g></g>
-      <g class="late" style="--d:.5s;pointer-events:none"><rect x="756" y="380" width="148" height="40" rx="20" fill="none" stroke="var(--amber)" stroke-width="2"/><text x="830" y="406" text-anchor="middle" class="stamp" style="fill:var(--amber);font-size:16px!important">RUNNER-UP</text></g>
-      <g class="late" style="--d:0s;pointer-events:none"><path class="x" d="M112 375 l44 44 M156 375 l-44 44"/><path class="x" d="M344 375 l44 44 M388 375 l-44 44"/></g>
+        <g class="late" style="--d:0.5s"><rect x="586" y="384" width="144" height="38" rx="19" fill="none" stroke="var(--amber)" stroke-width="2"/><text x="658.0" y="409" text-anchor="middle" class="stamp" style="fill:var(--amber);font-size:14px!important">RUNNER-UP</text></g>
+      <g class="pop" style="--d:0.5s" data-ref="neo4j-only" data-label="option E, Neo4j as the only datastore"><g class="p2fade">
+        <rect class="ocard" x="756" y="70" width="172" height="380" rx="12"/>
+        <text x="772" y="104" class="k">E</text><text x="772" y="134" style="font:700 17px var(--f-display)">Neo4j only</text>
+        <text x="772" y="180" style="font-size:15px">One datastore</text>
+        <text x="772" y="212" style="font-size:15px">Queue: 14 ms</text>
+        <text x="772" y="244" style="font-size:15px">Memory: ~1.46 GB</text>
+        <text x="772" y="276" style="font-size:15px">No EF Core</text>
+      </g></g>
+        <g class="late" style="--d:0.6s"><rect x="770" y="384" width="144" height="38" rx="19" fill="none" stroke="var(--muted)" stroke-width="2"/><text x="842.0" y="409" text-anchor="middle" class="stamp" style="fill:var(--muted);font-size:14px!important">VIABLE, HEAVY</text></g>
+      <g class="late" style="--d:0s;pointer-events:none"><path class="x" d="M84 380 l44 44 M128 380 l-44 44"/><path class="x" d="M268 380 l44 44 M312 380 l-44 44"/></g>
     </g>
 
     <!-- S3: benchmark -->
@@ -332,8 +341,8 @@ const SC = [
    ex: `<p><b>You open <i>pg internals</i>, and Related shows <i>MVCC explained</i>.</b> <i>Why:</i> pg internals links to it and both are tagged <code>postgres</code>. Two independent signals point the same way.</p>
 <p><b>It also shows <i>wal.dev/intro</i>, a page you never saved.</b> <i>Why:</i> both bookmarks cite it, so it's likely the next thing to read on this thread. A flat list has no way to surface it.</p>` },
  { t: 'Where should the graph live?',
-   c: 'Issue #15 offered two engines. The ADR adds two more, plain Postgres tables and SQLite, and picks Postgres. SQLite is the runner-up.',
-   why: `<p>At 10k bookmarks, speed doesn't pick the winner; all three are fast enough. Running cost does.</p><p>Every extra engine is one more thing to install, back up, upgrade and keep in sync, on a small arm64 box.</p><p><b>SQLite came close.</b> <i>Why it's in the running:</i> enrichment moved out of the app, so nothing else needs a database connection, and an embedded file removes a container. <i>Why it lost:</i> the reading queue runs about 4× slower, and its vector extension is pre-1.0.</p>`,
+   c: 'Five ways to store the graph. Postgres tables win; SQLite and Neo4j-only are both viable, but each costs something Postgres doesn\'t.',
+   why: `<p>At 10k bookmarks, speed doesn't pick the winner; all three are fast enough. Running cost does.</p><p>Every extra engine is one more thing to install, back up, upgrade and keep in sync, on a small arm64 box.</p><p><b>SQLite came close.</b> <i>Why it's in the running:</i> enrichment moved out of the app, so nothing else needs a database connection, and an embedded file removes a container. <i>Why it lost:</i> the reading queue runs about 4× slower, and its vector extension is pre-1.0.</p><p><b>Neo4j alone is fast enough.</b> <i>Why it lost:</i> it used about 1.46 GB of memory against Postgres's 30 MB, and every query, CRUD included, moves to Cypher with no EF Core.</p>`,
    ex: `<p>Backlinks for bookmark 42, written both ways:</p>
 <pre><span class="c">-- A. Apache AGE (Cypher inside SQL)</span>
 SELECT * FROM cypher('kg', $$
@@ -347,12 +356,13 @@ WHERE e.dst = 42 AND e.type = 'links_to';</pre>
 <p><b>Why this query:</b> it's the simplest graph question in the ADR, so the only difference is the engine.</p>
 <p><b>A returns <code>agtype</code>.</b> <i>Why it matters:</i> .NET needs a community plugin to read it, and EF Core can't map it.</p>
 <p><b>C returns ordinary rows.</b> <i>Why it matters:</i> the existing EF Core and Npgsql code reads them as they are.</p>
-<p><b>C vs D, same data (p50 ms):</b></p>
-<pre>query           Postgres  SQLite
-backlinks            0.1     0.0
-related              2.3     3.0
-reading queue         11   41–48</pre>
-<p><i>Why the queue gap:</i> SQLite joins with nested loops only, while Postgres hashes the 8.5k rows it has to score.</p>` },
+<p><b>C vs D vs E, same data (p50 ms):</b></p>
+<pre>query        Postgres  SQLite  Neo4j
+backlinks         0.1     0.0      1
+related           2.0     2.0    5.5
+reading queue       9      38     14
+memory          30 MB  in app  1.46 GB</pre>
+<p><i>Why the queue gap:</i> SQLite joins with nested loops only. Postgres hashes the rows it has to score, and Neo4j reads tag sizes from stored node degrees.</p>` },
  { t: 'Is plain SQL fast enough?',
    c: 'p50 latency at the 10k-bookmark target, with 226k edges. Then the one query over budget, the reading queue, is broken down: where its rows come from, and what the fix removes.',
    why: `<p>NFR-4 asks for under 300 ms at 10k bookmarks. These are typical (p50) times on synthetic data shaped like real use, including "hub" tags with over 2,000 bookmarks.</p><p>The scale is logarithmic because results span 0.1 ms to 300 ms. On a linear scale, everything except the queue would be a sliver.</p><p>The queue row comes from a separate run that compared queue variants; timings vary 10–40% between runs.</p>`,

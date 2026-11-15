@@ -94,3 +94,8 @@ bench('D1 queue 7d, all seeds', lambda _: db.execute(QUEUE_ALL, {'since': since,
 bench('D1 queue 7d, 30 seeds', lambda _: db.execute(QUEUE_ALL, {'since': since, 'seeds': 30}).fetchall(), [0] * 20)
 bench('D1 queue 7d, 30 seeds, skip hubs >200', lambda _: db.execute(QUEUE_D, {'since': since, 'seeds': 30}).fetchall(), [0] * 20)
 print('recent reads (7d):', db.execute('SELECT count(*) FROM bookmark WHERE read_at > ?', (since,)).fetchone()[0])
+# results for the cross-engine check (written to the current directory)
+import json
+json.dump({'queue_d': [r[0] for r in db.execute(QUEUE_D, {'since': since, 'seeds': 30}).fetchall()],
+           'related_42': [r[0] for r in db.execute(RELATED, {'r': 42}).fetchall()],
+           'by_tag_20003': [r[0] for r in db.execute(BY_TAG, (20003,)).fetchall()]}, open('sqlite_results.json', 'w'))
