@@ -40,6 +40,28 @@
 18. Add ability to sort the list of bookmarks. Sorting should be possible in ascending and descending order for the following dimensions: - Create date - Alphabetical
 19. Add ability to search within the bookmarks
 20. Need to publish arm64 version of the docker image
+21. My github repo bookmarks manager has a new issue #15. Can you start working on it?
+22. I need some creating way to review this change, instead of a lot of text
+23. could you maybe create an animated infographic ?
+24. can this page with its animation render in github?
+25. Let's use github pages instead
+26. I want to be able to view these adr animations while reviewing PRs. Is there a simple way to get GH pages to show them as i am reviewing PRs?
+27. So option A creates a new repo for keeping these artifacts?
+28. Very smart. Yes, let's do this.
+29. excellent. Now, I need a way to reference parts of this animation to ask questions to you. Also, the "why" and "examples" are needed for comprehension
+30. (storybook ref S2) I dont understand the syntax for option A
+31. no. next. (storybook ref S3.queue) I dont quite understand how to evaluate the cost between these options and what is the work to be done that costs this time
+32. The why part is missing from the sub-parts of this explanation which makes comprehension difficult.
+33. Yes. Also, based on my questions, identify the tone and level of detailed explanation to add to the PR animation storybook. The storybook will become a skill that evolves as we review the PR and will be used across repositories
+34. No need to test yet. I will move the skill out in a different session. As I ask questions, use them as an opportunity to consider strong candidates to tweak the storybook and suggest the insight to update either the current slide or the entire storybook.
+35. Each answer does not need to force the insight. Inly consider insights with medium to high level of confidence. And yes, do both.
+36. (storybook ref S4) What is the SSRF guard?
+37. Okay, so this brings up an interesting requirement. I don't know if I necessarily want the metadata extraction to happen on the server, but I would like to add some notes when I save bookmarks because I forget why exactly I saved it. [...] (n8n sidecar via API, bookmark page with notes, short URL, book recommendations)
+38. 1. I agree that I would need to tighten n8n. But that makes this app not need to worry about it. Ultimately n8n or any other app can query for the links and then call the APIs to enrich the metadata. 2. Let's not do short url for now. The ability to share with others needs a separate design of its own. 3. We should enforce url. Books will have a link to goodreads.
+39. yes, post it. Also, we should re evaluate the choice of database with these modified requirements
+40. yes, add SQLite as option D. If I am flexible to move away from the dotnet backend, does the decision matrix change?
+41. yes, benchmark Neo4j as option E
+42. (storybook ref S3) The animated content is too fast to read and comprehend, especially the part about where the 300ms is spent. Can we add a way to pause the animation?
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)

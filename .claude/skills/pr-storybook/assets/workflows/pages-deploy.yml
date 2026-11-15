@@ -1,0 +1,29 @@
+name: Deploy docs to GitHub Pages
+
+# Publishes master's docs/ to the root of the gh-pages branch.
+# PR previews live under gh-pages/pr-preview/ (see pr-preview.yml) and are kept.
+on:
+  push:
+    branches: [master]
+    paths: ["docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Shared with pr-preview.yml so the two never push to gh-pages at the same time.
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs
+          branch: gh-pages
+          clean-exclude: pr-preview/
+          force: false

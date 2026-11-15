@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bookmarks Manager Docs</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{--bg:#f3f5f6;--panel:#fff;--fg:#17202b;--muted:#5b6876;--line:#d8dee3;--accent:#0f6f86}
+@media (prefers-color-scheme:dark){:root{--bg:#11161c;--panel:#18202a;--fg:#e4e9ee;--muted:#93a1ae;--line:#2b3642;--accent:#4fb3c9;color-scheme:dark}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 "IBM Plex Sans",system-ui,sans-serif;padding:48px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px))}
+main{max-width:720px;margin:0 auto;display:grid;gap:20px}
+h1{font:700 clamp(28px,5vw,40px)/1.1 "Bricolage Grotesque",system-ui,sans-serif;margin:0}
+.eyebrow{font:500 12px/1 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+a.card{display:grid;gap:4px;padding:18px 20px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--fg);text-decoration:none}
+a.card:hover,a.card:focus-visible{border-color:var(--accent);outline:none}
+a.card b{font-weight:500;color:var(--accent)}
+a.card span{color:var(--muted);font-size:14.5px}
+</style>
+</head>
+<body>
+<main>
+  <span class="eyebrow">bookmarks-manager · docs</span>
+  <h1>ADR 0001: knowledge graph storage</h1>
+  <ul>
+    <li><a class="card" href="adr/0001-story.html"><b>Animated walkthrough</b><span>Seven short scenes: the options, the benchmark, the save flow, and what needs fixing.</span></a></li>
+    <li><a class="card" href="adr/0001-review.html"><b>Review page</b><span>Scorecard, interactive schema, and a checklist that turns your verdicts into a PR comment.</span></a></li>
+    <li><a class="card" href="https://github.com/eklavyamirani/bookmarks-manager/blob/master/docs/adr/0001-knowledge-graph-storage-and-enrichment.md"><b>Full ADR text</b><span>The decision record on GitHub, with the benchmark SQL alongside.</span></a></li>
+  </ul>
+</main>
+</body>
+</html>
