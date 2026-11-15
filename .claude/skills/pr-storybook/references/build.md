@@ -17,14 +17,14 @@ The reference page is one self-contained HTML file. It loads only Google Fonts a
 
 **Generic; keep as is unless something is broken:**
 - CSS "scene machinery": `.scene/.on` plus phase classes (`.p2`, `.f2`–`.f4`), `.pop`, `.zoom`, `.draw`, `.late`, `.bar`, `.swapA/.swapB`. Elements animate when their scene gets `.on`. Anything marked `.late` or `.swapB` animates in a second phase, when `.p2` is added after `P2[i]` ms. Delays come from the inline `--d` value.
-- The player: `go()`, the dots, Replay, Next, Auto-play (off by default), arrow keys, and `prefers-reduced-motion`. Under reduced motion the page jumps straight to each scene's final frame.
+- The player: `go()`, the dots, Replay, Pause (also Space), the ‹ › step bar, Next, Auto-play (off by default), arrow keys, and `prefers-reduced-motion`. One scene clock (`sceneTime()` and `schedule()`) drives the phases, timed extras such as S4's moving dot, and auto-advance, so pausing freezes all of them and Play resumes where it stopped. Selecting a reference pauses the scene.
 - References: `data-ref` and `data-label` on elements, `setPick()`, the `#sN-ref` deep links, the Ask box, and Copy question.
 - Layout: the 960×540 SVG stage, then the caption, then the Why and Example cards, then the Ask box.
 
 **Content; replace for each storybook:**
 - The `SC` array: `t` (title), `c` (caption), `why` (HTML) and `ex` (HTML), one entry per scene.
 - The `<g class="scene">` blocks inside the SVG, plus the scene builders in the script (for example the chart and pipeline builders).
-- `DUR` (auto-play time per scene) and `PH`: per scene, a list of `[delay ms, class]` phases, for example `[[3800, 'f2'], [10500, 'f3'], [16000, 'f4']]`. Each class is added to the scene at its delay, and CSS keyed on it drives that step. Add any new phase class to `PHASES` so it's cleared when the scene is left.
+- `DUR` (auto-play time per scene) and `PH`: per scene, a list of `[delay ms, class]` phases, for example `[[3800, 'f2'], [10500, 'f3'], [16000, 'f4']]`. Each class is added to the scene at its delay, and CSS keyed on it drives that step. Add any new phase class to `PHASES` so it's cleared when the scene is left. Give each scene a label per step in `PHL`, including the starting state, so `PHL[i].length` is `PH[i].length + 1`. The step bar shows these labels. Mark an element that only appears in a later step with `data-step="<n>"` on it or a parent: a deep link to it then jumps to that step and pauses.
 - A scene can swap its whole view in a phase. S3 hides the chart (`#chart`) during the fan-out (`.fan`), then brings it back. Use this to show the mechanism behind a number, then return to the number.
 - The links in the top bar (PR number, companion pages).
 

@@ -61,6 +61,7 @@
 39. yes, post it. Also, we should re evaluate the choice of database with these modified requirements
 40. yes, add SQLite as option D. If I am flexible to move away from the dotnet backend, does the decision matrix change?
 41. yes, benchmark Neo4j as option E
+42. (storybook ref S3) The animated content is too fast to read and comprehend, especially the part about where the 300ms is spent. Can we add a way to pause the animation?
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)

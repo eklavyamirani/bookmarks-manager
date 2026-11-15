@@ -41,6 +41,7 @@ When the reviewer asks about a part of the storybook:
 - The animation shows how things move, grow or change: data flowing, counts growing, a bar shrinking when a fix is applied. Never animate just for decoration.
 - Show code only if the reviewer reads that language, or if the code itself is the point. Otherwise use plain SQL or pseudo-code. If you do show unfamiliar syntax, expect a question about it. The reviewer declined a syntax breakdown on the page itself, so explain it in the answer, not on the page.
 - Tables beat paragraphs for comparisons. Add a "why" column rather than prose underneath.
+- The reader sets the pace. Every multi-step scene can be paused and stepped through, with each step labelled. Auto-advance is opt-in. A scene's timing is only the default for people who just watch.
 - Keep it reachable from the PR: a preview link at the top of the PR description, not only in a bot comment (they missed the bot comment).
 
 ## Workflow preferences
@@ -70,3 +71,4 @@ Newest last. Each entry has the reviewer's words and the rule it produced.
 | 12 | "As I ask questions, use them as an opportunity to consider strong candidates to tweak the storybook and suggest the insight to update either the current slide or the entire storybook." | Every answer ends with one or two storybook insights, scoped to this scene or the whole storybook; suggest only |
 | 13 | "Each answer does not need to force the insight. Only consider insights with medium to high level of confidence." | Insights are optional; offer one only at medium-high confidence |
 | 14 | "What is the SSRF guard?" (about a two-word label in a scene) | Every term shown in a scene, even a short label on a diagram, gets defined in that scene's Why or Example card |
+| 15 | "The animated content is too fast to read and comprehend [...] Can we add a way to pause the animation?" | The reader controls the pace: pause, step forward and back through every multi-step scene, with a label per step; selecting something to ask about pauses the scene |
