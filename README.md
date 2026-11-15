@@ -55,6 +55,9 @@
 33. Yes. Also, based on my questions, identify the tone and level of detailed explanation to add to the PR animation storybook. The storybook will become a skill that evolves as we review the PR and will be used across repositories
 34. No need to test yet. I will move the skill out in a different session. As I ask questions, use them as an opportunity to consider strong candidates to tweak the storybook and suggest the insight to update either the current slide or the entire storybook.
 35. Each answer does not need to force the insight. Inly consider insights with medium to high level of confidence. And yes, do both.
+36. (storybook ref S4) What is the SSRF guard?
+37. Okay, so this brings up an interesting requirement. I don't know if I necessarily want the metadata extraction to happen on the server, but I would like to add some notes when I save bookmarks because I forget why exactly I saved it. [...] (n8n sidecar via API, bookmark page with notes, short URL, book recommendations)
+38. 1. I agree that I would need to tighten n8n. But that makes this app not need to worry about it. Ultimately n8n or any other app can query for the links and then call the APIs to enrich the metadata. 2. Let's not do short url for now. The ability to share with others needs a separate design of its own. 3. We should enforce url. Books will have a link to goodreads.
 
 ## Setup instructions
 1. Setup the postgres config in .devcontainer/.postgres.env (copy the sample, rename it to .postgres.env and fill in the values)
