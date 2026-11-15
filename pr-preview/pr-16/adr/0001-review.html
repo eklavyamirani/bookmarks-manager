@@ -210,13 +210,13 @@ ol.decisions{list-style:none;margin:0;padding:0;display:grid;gap:0}
 </section>
 
 <section class="panel" id="pipeline">
-  <header><span class="eyebrow">The save flow</span><h2>Saving is instant, enrichment runs after</h2></header>
+  <header><span class="eyebrow">The save flow</span><h2>Saving is instant; enrichment happens outside the app</h2></header>
   <div class="pipe" id="pipe"></div>
   <div class="notes">
-    <div class="note"><b>Queue</b><span>A Postgres table with <code>FOR UPDATE SKIP LOCKED</code>, run by a background worker in the API process. No Redis or RabbitMQ.</span></div>
-    <div class="note"><b>Failure</b><span>A failed fetch leaves the bookmark usable with status <code>failed</code>. Re-running enrichment means queueing the job again.</span></div>
-    <div class="note"><b>SSRF guard</b><span>The fetcher refuses private, loopback and link-local addresses, including after redirects, because MCP clients can add any URL.</span></div>
-    <div class="note"><b>No LLM in P1</b><span>Topics and embeddings are P2, behind an OpenAI-compatible endpoint. The provider is picked in ADR 0002.</span></div>
+    <div class="note"><b>Pull, not push</b><span>The enricher (n8n or any client) polls <code>GET /api/bookmarks?enrichment=pending</code> with a cursor. No webhooks to retry, no queue table.</span></div>
+    <div class="note"><b>Failure</b><span>If the enricher is down or fails, the bookmark still works with its URL, why and tags. Setting status back to <code>pending</code> re-runs it.</span></div>
+    <div class="note"><b>SSRF moves out</b><span>The app never fetches a URL, so it can't be pointed at internal addresses. The enricher has to block private, loopback and link-local addresses.</span></div>
+    <div class="note"><b>Notes in Phase 1</b><span>A <code>why</code> at save time, plus timestamped notes later. Promoted from P2 so you remember why you saved something.</span></div>
   </div>
 </section>
 
@@ -414,10 +414,10 @@ $('#promote').addEventListener('click', () => {
 
 /* ---------- pipeline ---------- */
 const steps = [
-  ['POST /bookmarks', 'insert bookmark + job', 'api'], ['m'],
-  ['Fetch', 'timeouts, size cap, SSRF guard'], ['Normalize + dedupe', 'utm_*, redirects, canonical'],
-  ['Extract', 'title, author, links'], ['Resolve links', 'bookmark or url_ref'],
-  ['Topics', 'P2 · LLM', 'p2'], ['Embeddings', 'P2 · pgvector', 'p2'],
+  ['POST /bookmarks', 'url + why + tags', 'api'], ['Normalize + dedupe', 'utm_*, aliases'], ['m'],
+  ['Enricher polls', 'outside the app'], ['Fetch + extract', 'in n8n, with its own SSRF check'],
+  ['PATCH + PUT links', 'results back via the API', 'api'],
+  ['Topics, embeddings', 'P2 · same pattern', 'p2'],
 ];
 $('#pipe').innerHTML = steps.map((s, i) => {
   if (s[0] === 'm') return '<span class="marker">201 returned</span>';
@@ -431,9 +431,9 @@ const decisions = [
   ['sor', 'Postgres stays the only store and the system of record', 'No derived graph index to keep in sync.'],
   ['edges', 'P1 edge types: tagged, child_of, on_domain, links_to, authored_by', 'Dedupe aliases go in a table, not edges.'],
   ['entity', 'One shared id space for every node kind', 'Lets a linked URL become a bookmark without rewriting edges.'],
-  ['queue', 'Enrichment queue is a Postgres table worked inside the API process', 'SKIP LOCKED + LISTEN/NOTIFY; no Redis or RabbitMQ.'],
-  ['ssrf', 'Fetcher blocks private network addresses by default', 'Configurable, for intranet bookmarks.'],
-  ['llm', 'Phase 1 ships without an LLM; provider decided in ADR 0002', 'Topics and embeddings are P2.'],
+  ['enrich', 'Enrichment runs in external clients that poll the API', 'n8n or any client; the app makes no outbound requests.'],
+  ['ssrf-enricher', 'SSRF protection is the enricher\'s job', 'The enricher must refuse private, loopback and link-local addresses.'],
+  ['notes', 'Notes in Phase 1: a why at save time plus later notes; url is required', 'Books use their Goodreads link. LLM and embedding choices belong to the enricher.'],
   ['ef', 'Switch to EF Core code-first migrations', 'Replaces database-first scaffolding and EnsureCreated().'],
   ['caps', 'Hard caps on graph APIs: depth ≤ 3, limit ≤ 200; queue caps seeds and discounts popular tags', 'From the benchmark findings. Queue ranking gets checked on real data in its PR.'],
   ['plan', 'Phase 1 as 8 PRs, starting with schema, migrations and the image bump', 'Image moves to pgvector/pgvector:pg18, with the volume fix.'],

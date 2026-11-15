@@ -348,15 +348,18 @@ D  30 reads + skip/discount
    popular tags                 9 ms</pre>
 <p><b>Still open:</b> B and D pick completely different top 20s. Which ranking is better needs your real bookmarks. The queue PR checks that.</p>` },
  { t: 'Saving stays instant',
-   c: 'The API replies right after the insert. A background worker fetches and parses the page from a queue table in Postgres.',
-   why: `<p>Fetching a page can take seconds or fail outright. If saving waited for it, adding a bookmark from your phone or from an agent would hang.</p><p>So the API stores the bookmark and a job in one transaction and replies. A worker does the slow part, and the bookmark shows its enrichment status meanwhile (NFR-2).</p>`,
-   ex: `<p>You save a link to a site that's down:</p>
-<pre>POST /api/bookmarks  → 201, status: pending
-worker: fetch fails  → retry with backoff
-after max attempts   → status: failed</pre>
-<p><b>You get 201 right away, status pending.</b> <i>Why:</i> the save is two inserts in one transaction; the fetch happens later.</p>
-<p><b>The worker retries with backoff, then marks it failed.</b> <i>Why:</i> sites come back, and backoff avoids hammering one that's struggling.</p>
-<p><b>The bookmark still works.</b> <i>Why:</i> enrichment only adds data (title, author, links). The URL alone is enough to list and search it. "Re-run enrichment" queues the job again (FR-A10).</p>` },
+   c: 'The app stores the bookmark and replies. Anything slow (fetching the page, reading its title and links) is done by an outside client such as n8n, through the API.',
+   why: `<p><b>Saving only writes to the database.</b> <i>Why:</i> fetching a page can take seconds or fail. If saving waited for it, adding a bookmark from your phone or from an agent would hang.</p>
+<p><b>Enrichment happens outside the app.</b> <i>Why:</i> the app never requests a URL someone gave it, so it can't be tricked into reaching internal addresses (SSRF, server-side request forgery). The enricher has to block private addresses instead.</p>
+<p><b>The enricher pulls work.</b> <i>Why:</i> there are no webhooks to retry, and any number of clients can join. The cost is a delay of one poll interval.</p>`,
+   ex: `<p>You save a book a friend recommended:</p>
+<pre>POST /api/bookmarks
+{ "url": "https://www.goodreads.com/book/show/…",
+  "why": "friend: best intro to feedback loops" }
+→ 201, status: pending</pre>
+<p><b>You get 201 right away.</b> <i>Why:</i> the save is one insert, and nothing waits on Goodreads.</p>
+<p><b>n8n's next poll picks it up</b>, fetches the page and sends back the title, author and links. <i>Why not the app:</i> every outbound request stays in n8n, on a network you control.</p>
+<p><b>If n8n is down, nothing breaks.</b> <i>Why:</i> the bookmark already has its URL and your why; enrichment only adds to them. Setting the status back to pending re-runs it (FR-A10).</p>` },
  { t: 'Save a linked page, keep every link',
    c: 'A page that other bookmarks link to already has an id. Saving it changes only its kind, so the existing links become backlinks without rewriting a single row.',
    why: `<p>Links to pages you haven't saved are still useful: they show what your saved pages cite (FR-A4).</p><p>If every node shares one id space, saving such a page later is a one-row change. Without that, you'd have to find and rewrite every edge that pointed at it.</p>`,
@@ -497,47 +500,63 @@ to store database data in a …</pre>
   t('Popular tags make the most rows and say the least about relatedness.', { x: 480, y: 478, 'text-anchor': 'middle', class: 'n2', style: 'font-size:16px;fill:var(--muted)' }, f);
 })();
 
-/* ---------- S4 pipeline ---------- */
+/* ---------- S4 save flow: app vs external enricher ---------- */
 (() => {
   const g = document.getElementById('pipe');
-  const steps = [['post', 'POST', 'bookmark + job', 'api'], ['fetch', 'Fetch', 'SSRF guard'], ['normalize', 'Normalize', 'dedupe URLs'], ['extract', 'Extract', 'title, author'], ['resolve', 'Resolve', 'links']];
-  const w = 140, gap = 40, y = 200, h = 84, x0 = 50, cx = i => x0 + i * (w + gap);
-  steps.forEach((s, i) => {
-    if (i) el('path', { class: 'edge draw', pathLength: 1, d: `M${cx(i) - gap + 4} ${y + h / 2} H${cx(i) - 6}`, 'marker-end': 'url(#ar)', style: `--d:${.3 + i * .2}s` }, g);
-    const gg = el('g', { class: 'pop', style: `--d:${.1 + i * .2}s`, 'data-ref': s[0], 'data-label': `pipeline step: ${s[1]}` }, g);
-    el('rect', { class: 'step' + (s[3] ? ' api' : ''), x: cx(i), y, width: w, height: h, rx: 10 }, gg);
-    txt(s[1], { x: cx(i) + w / 2, y: y + 38, 'text-anchor': 'middle', style: 'font:700 20px var(--f-display)' }, gg);
-    txt(s[2], { x: cx(i) + w / 2, y: y + 62, 'text-anchor': 'middle', class: 'k', style: 'font-size:12px' }, gg);
-  });
+  const box = (ref, label, x, y, w, h, title, sub, cls, d, extra) => {
+    const gg = el('g', { class: 'pop', style: `--d:${d}s`, 'data-ref': ref, 'data-label': label }, g);
+    el('rect', { class: 'step ' + (cls || ''), x, y, width: w, height: h, rx: 10 }, gg);
+    txt(title, { x: x + w / 2, y: y + 36, 'text-anchor': 'middle', style: 'font:700 19px var(--f-display)' }, gg);
+    if (sub) txt(sub, { x: x + w / 2, y: y + 60, 'text-anchor': 'middle', class: 'k' + (extra || ''), style: 'font-size:12px' }, gg);
+    return gg;
+  };
+  const arrow = (d, delay, dashed) => el('path', { class: 'edge draw', pathLength: 1, d, 'marker-end': 'url(#ar)', style: `--d:${delay}s` + (dashed ? ';stroke-dasharray:6 5' : '') }, g);
+  // inside the app
+  txt('INSIDE THE APP', { x: 50, y: 64, class: 'k pop', style: '--d:0s' }, g);
+  box('post', 'API call: POST /api/bookmarks', 50, 84, 200, 80, 'POST', 'url + why + tags', 'api', .1);
+  arrow('M254 124 H292', .3);
+  box('normalize', 'normalize and dedupe the URL', 296, 84, 200, 80, 'Normalize', 'dedupe URLs', '', .3);
+  arrow('M500 124 H538', .5);
+  const saved = box('saved', 'the saved bookmark and its status', 542, 84, 200, 80, 'Saved', null, '', .5);
+  txt('status: pending', { x: 642, y: 144, 'text-anchor': 'middle', class: 'k swapA', style: 'font-size:12px' }, saved);
+  txt('status: done', { x: 642, y: 144, 'text-anchor': 'middle', class: 'k swapB', style: 'font-size:12px;fill:var(--green)!important' }, saved);
   const ok = el('g', { 'data-ref': '201', 'data-label': 'the 201 reply' }, g);
-  const okz = el('g', { class: 'zoom', style: '--d:.6s' }, ok);
-  el('rect', { x: cx(0) + 10, y: 110, width: 120, height: 48, rx: 24, class: 'ok201' }, okz);
-  txt('201', { x: cx(0) + 70, y: 142, 'text-anchor': 'middle', style: 'font:800 22px var(--f-display);fill:var(--bg)' }, okz);
-  txt('reply sent here', { x: cx(0) + 150, y: 140, class: 'pop', style: '--d:.8s;font-size:16px;fill:var(--green)' }, ok);
-  el('path', { class: 'draw', pathLength: 1, d: `M${cx(0) + 70} 160 V196`, stroke: 'var(--green)', 'stroke-width': 3, style: '--d:.7s' }, g);
-  const wk = el('g', { 'data-ref': 'worker', 'data-label': 'the background worker' }, g);
-  el('rect', { x: cx(1), y: y + h + 8, width: cx(4) + w - cx(1), height: 40, fill: 'transparent' }, wk);
-  txt('BACKGROUND WORKER  ·  queue table, SKIP LOCKED', { x: cx(1), y: y + h + 36, class: 'k pop', style: '--d:1.1s' }, wk);
-  el('path', { class: 'draw', pathLength: 1, d: `M${cx(1)} ${y + h + 14} H${cx(4) + w}`, stroke: 'var(--line)', 'stroke-width': 2, style: '--d:1.1s' }, wk);
-  const p2 = el('g', { 'data-ref': 'phase2', 'data-label': 'Phase 2 steps (topics, embeddings)' }, g);
-  [['Topics', 'LLM'], ['Embeddings', 'pgvector']].forEach((s, i) => {
-    const gg = el('g', { class: 'pop', style: `--d:${1.4 + i * .2}s` }, p2);
-    const xx = cx(2) + i * (w + gap) + 40;
-    el('rect', { class: 'step p2s', x: xx, y: 390, width: w + 20, height: 70, rx: 10 }, gg);
-    txt(s[0], { x: xx + (w + 20) / 2, y: 424, 'text-anchor': 'middle', style: 'font:700 19px var(--f-display);fill:var(--muted)' }, gg);
-    txt(s[1], { x: xx + (w + 20) / 2, y: 446, 'text-anchor': 'middle', class: 'k', style: 'font-size:12px' }, gg);
-  });
-  txt('PHASE 2', { x: cx(2) - 30, y: 430, 'text-anchor': 'end', class: 'k pop', style: '--d:1.4s' }, p2);
+  const okz = el('g', { class: 'zoom', style: '--d:.8s' }, ok);
+  el('rect', { x: 790, y: 100, width: 120, height: 48, rx: 24, class: 'ok201' }, okz);
+  txt('201', { x: 850, y: 132, 'text-anchor': 'middle', style: 'font:800 22px var(--f-display);fill:var(--bg)' }, okz);
+  arrow('M746 124 H786', .7);
+  // boundary
+  const bd = el('g', { 'data-ref': 'boundary', 'data-label': 'the API boundary (the app makes no outbound requests)' }, g);
+  el('rect', { x: 30, y: 196, width: 900, height: 34, fill: 'transparent' }, bd);
+  el('path', { class: 'draw', pathLength: 1, d: 'M30 212 H930', stroke: 'var(--muted)', 'stroke-width': 1.5, style: '--d:1s;stroke-dasharray:4 6' }, bd);
+  txt('API BOUNDARY · the app makes no outbound requests', { x: 480, y: 204, 'text-anchor': 'middle', class: 'k pop', style: '--d:1.1s;font-size:12px' }, bd);
+  // outside: the enricher
+  const wk = el('g', { 'data-ref': 'worker', 'data-label': 'the external enricher (n8n or any API client)' }, g);
+  el('rect', { x: 30, y: 250, width: 900, height: 250, rx: 14, fill: 'transparent', stroke: 'var(--line)', 'stroke-width': 1.5, 'stroke-dasharray': '7 6', class: 'pop', style: '--d:1.2s' }, wk);
+  txt('OUTSIDE · n8n or any API client', { x: 50, y: 278, class: 'k pop', style: '--d:1.2s' }, wk);
+  box('pending', 'API call: GET pending bookmarks', 50, 300, 190, 80, 'GET pending', 'poll with a cursor', '', 1.4);
+  arrow('M244 340 H272', 1.6);
+  box('fetch', 'the enricher fetches the page (its SSRF check lives here)', 276, 300, 190, 80, 'Fetch page', 'SSRF check here', '', 1.6);
+  arrow('M470 340 H498', 1.8);
+  box('extract', 'the enricher extracts title, author, links', 502, 300, 190, 80, 'Extract', 'title, author, links', '', 1.8);
+  arrow('M696 340 H724', 2);
+  box('resolve', 'API calls: PATCH metadata, PUT links', 728, 300, 190, 80, 'Write back', 'PATCH + PUT links', 'api', 2);
+  // calls crossing the boundary
+  arrow('M642 168 C642 230 145 230 145 296', 2.3, true);
+  txt('pending list', { x: 400, y: 262, class: 'lbl pop', style: '--d:2.4s' }, g);
+  arrow('M823 296 C823 250 700 220 700 172', 2.5, true);
+  txt('results', { x: 770, y: 238, class: 'lbl pop', style: '--d:2.6s' }, g);
+  txt('If no enricher runs, bookmarks still work: URL, why and tags are already saved.', { x: 480, y: 430, 'text-anchor': 'middle', class: 'pop', style: '--d:2.8s;font-size:16px;fill:var(--muted)' }, g);
   const tok = el('circle', { r: 9, class: 'token', cx: 0, cy: 0, opacity: 0, 'pointer-events': 'none' }, g);
-  const mot = el('animateMotion', { dur: '3.2s', begin: 'indefinite', fill: 'freeze', path: `M${cx(0) + w / 2} ${y + h / 2} H${cx(4) + w / 2}` }, tok);
-  window.__runToken = () => { if (reduce) return; tok.setAttribute('opacity', 1); try { mot.beginElement(); } catch (e) {} timers.push(setTimeout(() => tok.setAttribute('opacity', 0), 3400)); };
+  const mot = el('animateMotion', { dur: '5s', begin: 'indefinite', fill: 'freeze', path: 'M150 124 H642 C642 230 145 230 145 340 H823 C823 250 700 220 700 124' }, tok);
+  window.__runToken = () => { if (reduce) return; tok.setAttribute('opacity', 1); try { mot.beginElement(); } catch (e) {} timers.push(setTimeout(() => tok.setAttribute('opacity', 0), 5200)); };
 })();
 
 /* ---------- player ---------- */
 const scenes = [...document.querySelectorAll('.scene')];
-const DUR = [7000, 7500, 20000, 6500, 7500, 6500, 7000];
+const DUR = [7000, 7500, 20000, 9500, 7500, 6500, 7000];
 // per scene: [delay ms, class added to the scene]
-const PH = [[], [[3600, 'p2']], [[3800, 'f2'], [10500, 'f3'], [16000, 'f4']], [], [[3200, 'p2']], [], []];
+const PH = [[], [[3600, 'p2']], [[3800, 'f2'], [10500, 'f3'], [16000, 'f4']], [[8300, 'p2']], [[3200, 'p2']], [], []];
 const PHASES = ['p2', 'f2', 'f3', 'f4'];
 const dots = document.getElementById('dots');
 scenes.forEach((_, i) => { const b = document.createElement('button'); b.setAttribute('aria-label', `Scene ${i + 1}: ${SC[i].t}`); b.onclick = () => go(i); dots.appendChild(b); });
@@ -567,7 +586,7 @@ function go(i, keepPick) {
   document.getElementById('count').textContent = `S${i + 1} · ${i + 1} / ${scenes.length}`;
   [...dots.children].forEach((d, j) => { d.classList.toggle('cur', j === i); d.classList.toggle('done', j < i); });
   PH[i].forEach(([ms, cls]) => timers.push(setTimeout(() => scenes[i].classList.add(cls), ms)));
-  if (i === 3) timers.push(setTimeout(window.__runToken, 1200));
+  if (i === 3) timers.push(setTimeout(window.__runToken, 3200));
   if (i === 6) countUp();
   if (auto) timers.push(setTimeout(() => go(i + 1), DUR[i] + 4000));
   if (!keepPick) { setPick(null); document.getElementById('out').hidden = true; document.getElementById('status').textContent = ''; }

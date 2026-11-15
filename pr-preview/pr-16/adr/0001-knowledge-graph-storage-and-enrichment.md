@@ -1,8 +1,8 @@
-# ADR 0001: Knowledge graph storage and enrichment pipeline
+# ADR 0001: Knowledge graph storage and enrichment
 
 - **Status:** Proposed
 - **Date:** 2026-11-13
-- **Issue:** #15 (open questions 1, 3, 4; question 2 only partly, see [Enrichment](#enrichment-pipeline))
+- **Issue:** #15 (open questions 1–4; see [Enrichment](#enrichment-done-by-api-clients-not-the-app))
 - **Visual versions:** [animated walkthrough](https://eklavyamirani.github.io/bookmarks-manager/adr/0001-story.html) · [review page](https://eklavyamirani.github.io/bookmarks-manager/adr/0001-review.html) (GitHub Pages; each PR touching `docs/` also gets a preview link)
 
 ## Context
@@ -109,7 +109,7 @@ Revisit if: the edge count passes about 5M, P2/P3 queries turn into mostly varia
 ### Answers to the open questions in #15
 
 1. **Storage:** C (above).
-2. **Enrichment provider:** deferred to ADR 0002. P1 doesn't need an LLM (see phasing below).
+2. **Enrichment provider:** not this app's concern. Enrichment runs in an external client (n8n or any other) through the API, so the client chooses its own fetcher, LLM and embedding model. See [Enrichment](#enrichment-done-by-api-clients-not-the-app).
 3. **Ownership:** Postgres is the system of record. There is no derived graph index to keep in sync.
 4. **P1 edge vocabulary:** `tagged` (bookmark→tag), `child_of` (tag→tag), `on_domain` (bookmark→domain), `links_to` (bookmark→bookmark|url), `authored_by` (bookmark→author). Dedupe aliases go in a table, not edges. P2 adds `about` (topic, weighted), `found_via`, `in_collection`, and the annotation types (`contradicts`, `supersedes`, `expands_on`).
 
@@ -128,11 +128,20 @@ CREATE TABLE bookmark (
   url_normalized    text NOT NULL UNIQUE,          -- FR-B2
   canonical_url     text,
   title             text,
+  why               text,                           -- FR-A8: why it was saved, written at save time
   created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(), -- cursor for API clients
   read_at           timestamptz,
-  enrichment_status text NOT NULL DEFAULT 'pending', -- NFR-2
+  enrichment_status text NOT NULL DEFAULT 'pending', -- pending | done | failed, set by the enricher (NFR-2)
   enriched_at       timestamptz,
-  search            tsvector                        -- FR-C5, maintained by trigger/job
+  search            tsvector                        -- FR-C5, maintained by trigger
+);
+CREATE INDEX bookmark_pending ON bookmark (updated_at) WHERE enrichment_status = 'pending';
+CREATE TABLE note (                                 -- FR-A8: thoughts added later
+  id          bigserial PRIMARY KEY,
+  bookmark_id bigint NOT NULL REFERENCES bookmark(id) ON DELETE CASCADE,
+  body        text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE tag      (id bigint PRIMARY KEY REFERENCES entity(id) ON DELETE CASCADE, name text NOT NULL UNIQUE);
 CREATE TABLE domain   (id bigint PRIMARY KEY REFERENCES entity(id) ON DELETE CASCADE, host text NOT NULL UNIQUE);
@@ -156,21 +165,27 @@ The shared `entity` id makes FR-A4 cheap. When a saved page links to a URL that 
 
 Persistence: switch from database-first scaffolding plus `EnsureCreated()` to **EF Core code-first migrations**. NFR-1 allows starting empty, and the schema will change often.
 
-## Enrichment pipeline
+## Enrichment: done by API clients, not the app
+
+**Change from #15 FR-A3.** The issue says "the system fetches the page". Instead, the app never fetches anything. An external client does it, for example an n8n workflow: it asks the API what needs enriching, fetches and parses the page itself, and writes the results back through the API.
 
 ```
-POST /bookmarks ──tx──▶ insert entity + bookmark(status=pending) + enrichment_job ──▶ 201
-                                                     │ NOTIFY enrichment
-BackgroundService ◀── LISTEN + poll (SELECT … FOR UPDATE SKIP LOCKED) ──┘
-   └─ fetch → normalize/dedupe → extract (title, canonical, author, links) → resolve links → [P2: topics, embeddings]
+you / agent ──POST /api/bookmarks {url, why, tags}──▶ app: normalize, dedupe, insert ──▶ 201 (status: pending)
+
+enricher (n8n) ──GET /api/bookmarks?enrichment=pending&since=<cursor>──▶ app
+   └─ fetch page → extract title, author, canonical URL, outbound links
+   ──PATCH /api/bookmarks/{id} {title, author, canonicalUrl, enrichmentStatus}──▶ app
+   ──PUT   /api/bookmarks/{id}/links {urls: [...]}──▶ app: links_to edges, url_ref for unsaved targets (FR-A4)
 ```
 
-- **Queue:** a Postgres table plus `SKIP LOCKED`, running in the same process. No Redis or RabbitMQ. Retries back off; `attempts` and `last_error` are visible through the API (NFR-2).
-- **Stages are idempotent and versioned.** FR-A10's re-run means enqueuing a job again, for one bookmark or for all.
-- **A failed fetch doesn't fail the save** (FR-A3). The bookmark stays usable, with `enrichment_status=failed`.
-- **SSRF:** by default the fetcher refuses private, loopback and link-local targets, including after redirects. An MCP or agent client can add arbitrary URLs, and the server shares a network with Postgres. Make this configurable for intranet bookmarks.
-- **Normalization (FR-B2), applied before the unique check:** lowercase the scheme and host, drop default ports and the fragment, strip `utm_*`, `fbclid`, `gclid` and similar, and sort the query string. After the fetch, a redirect target or `rel=canonical` that matches an existing bookmark merges into it, and the old URL goes into `url_alias`. Mirror detection (content hashing) is P2.
-- **P1 needs no LLM.** Tags are user-supplied; domain, author, links and canonical URL come from parsing HTML. Topics (FR-A5) and embeddings (FR-A6) are P2. They sit behind `ITopicExtractor` / `IEmbedder`, aimed at an OpenAI-compatible endpoint so llama.cpp, Ollama or a hosted API can be swapped by config. The choice of model and provider is ADR 0002. Store the embedding model id next to each vector, so changing models means re-embedding instead of silently mixing vector spaces.
+- **Why the app makes no outbound requests:** fetching user-supplied URLs is where SSRF comes from. With no fetcher in the app, there's nothing to guard here, and no outbound network access to configure.
+- **SSRF moves to the enricher.** Whoever runs it must refuse private, loopback and link-local addresses, including after redirects. Anyone who can add a bookmark still chooses what the enricher fetches.
+- **Pull, not push.** Clients poll the pending list with an `updated_at` cursor. *Why:* there's no webhook to deliver or retry, any number of clients can be added, and the app needs no queue table. The trade-off is latency equal to the poll interval. Phase 1 assumes one enricher; if there are ever several, add a claim endpoint (`SKIP LOCKED` with a lease) so two don't process the same bookmark.
+- **Status (NFR-2):** a bookmark starts `pending`, and the enricher sets `done` or `failed`. **Re-run (FR-A10):** set the status back to `pending`, for one bookmark or for a filtered set.
+- **A failed or missing enricher doesn't block anything.** Bookmarks stay usable with just a URL, `why` and tags.
+- **Normalization (FR-B2) stays in the app, applied before the unique check:** lowercase the scheme and host, drop default ports and the fragment, strip `utm_*`, `fbclid`, `gclid` and similar, and sort the query string. When the enricher reports a `canonicalUrl` that matches another bookmark, the app merges the two and keeps the old URL in `url_alias`. Mirror detection (content hashing) is P2.
+- **`url` is required.** Things without a page get a stable link anyway, for example a book via its Goodreads page.
+- **P2 enrichment uses the same pattern.** Topics (FR-A5) and embeddings (FR-A6) are written by the client: `PUT …/topics` and `PUT …/embedding`, with the model id stored next to each vector. The client picks the LLM and the embedding model.
 
 ## API guardrails (FR-F6)
 
@@ -193,7 +208,7 @@ BackgroundService ◀── LISTEN + poll (SELECT … FOR UPDATE SKIP LOCKED) �
 1. Schema plus EF code-first migrations; image bump to `pgvector/pgvector:pg18` and the volume fix; keep today's CRUD, sort and search (NFR-1).
 2. URL normalization, the dedupe/alias table, and domain linking (FR-A2, FR-B2).
 3. Tags plus the hierarchy, with filtering by tag including descendants (FR-A1, FR-B1).
-4. Enrichment queue, fetcher, HTML extraction and link resolution (FR-A3, FR-A4, NFR-2).
+4. `why` and notes (FR-A8, promoted from P2), plus the enrichment API for external clients: pending list with cursor, metadata `PATCH`, links `PUT` (FR-A3 via client, FR-A4, NFR-2, FR-A10).
 5. Server-side search (FR-C5).
 6. Related, backlinks and neighbourhood endpoints with bounds (FR-C1, FR-C2, FR-F1, FR-F6).
 7. Finish-the-thread queue (FR-D1), with the seed cap and popular-tag weighting; check its ranking against real bookmarks.
